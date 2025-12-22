@@ -3,7 +3,7 @@ import type { OrderItem } from '../types';
 
 // FIX: Per Gemini API guidelines, initialize GoogleGenAI with `process.env.API_KEY` directly.
 // The API key is assumed to be available in the execution environment.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY! });
 
 const orderSchema = {
   type: Type.ARRAY,
