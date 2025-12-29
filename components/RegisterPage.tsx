@@ -1,12 +1,18 @@
 
 import React, { useState } from 'react';
+import { supabase } from '../lib/supabase';
+import { UserRole } from '../types';
 
 interface RegisterPageProps {
-  onRegister: () => void; // Simplified for this demo
+  initialRole?: UserRole;
+  onRegister: () => void; 
   onSwitchToLogin: () => void;
 }
 
-export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegister, onSwitchToLogin }) => {
+export const RegisterPage: React.FC<RegisterPageProps> = ({ initialRole = UserRole.CLIENT, onRegister, onSwitchToLogin }) => {
+  const [role, setRole] = useState<UserRole>(initialRole);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     schoolName: '',
     address: '',
@@ -20,45 +26,131 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegister, onSwitch
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, you would send this data to a server.
-    // For this demo, we'll just show a success message and switch to login.
-    alert('¡Registro exitoso! Ahora puedes iniciar sesión con las credenciales creadas.');
-    onRegister();
+    setIsLoading(true);
+    setError(null);
+
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+    });
+
+    if (signUpError) {
+      setError(signUpError.message);
+      setIsLoading(false);
+      return;
+    }
+
+    if (data.user) {
+      // Create user profile in the 'profiles' table
+      const { error: profileError } = await supabase.from('profiles').insert({
+        id: data.user.id,
+        email: formData.email,
+        role: role,
+        school_name: formData.schoolName,
+        address: formData.address,
+        cuit: formData.cuit,
+        tax_status: formData.taxStatus,
+      });
+
+      if (profileError) {
+        setError(profileError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      alert(`¡Registro exitoso! Por favor, verifica tu email si es necesario e inicia sesión.`);
+      onRegister();
+    }
   };
 
+  const isClient = role === UserRole.CLIENT;
+
   return (
-    <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md border border-gray-200">
-      <h2 className="text-2xl font-bold text-center text-gray-800">Crear Cuenta Corporativa</h2>
+    <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-2xl shadow-xl border border-gray-100">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-gray-900">Crear Cuenta</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          {isClient ? 'Para instituciones y empresas compradoras' : 'Para proveedores y distribuidores'}
+        </p>
+      </div>
+
+      <div className="flex p-1 bg-gray-100 rounded-lg">
+        <button 
+          onClick={() => setRole(UserRole.CLIENT)}
+          className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${isClient ? 'bg-white text-teal-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          CLIENTE
+        </button>
+        <button 
+          onClick={() => setRole(UserRole.SUPPLIER)}
+          className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${!isClient ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          PROVEEDOR
+        </button>
+      </div>
+
       <form className="space-y-4" onSubmit={handleSubmit}>
+        {error && <p className="text-red-500 text-xs font-bold text-center bg-red-50 p-2 rounded">{error}</p>}
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Razón Social / Organización</label>
-          <input name="schoolName" placeholder="Ej: Tech Solutions S.A." required onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:ring-teal-500 focus:border-teal-500 focus:outline-none" />
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+            {isClient ? 'Nombre de la Institución / Empresa' : 'Razón Social'}
+          </label>
+          <input 
+            name="schoolName" 
+            placeholder={isClient ? "Ej: Colegio San José" : "Ej: Distribuidora Escolar S.R.L."} 
+            required 
+            onChange={handleChange} 
+            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all" 
+          />
         </div>
         
-        <input name="address" placeholder="Dirección Fiscal" required onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:ring-teal-500 focus:border-teal-500 focus:outline-none" />
-        <input name="cuit" placeholder="CUIT" required onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:ring-teal-500 focus:border-teal-500 focus:outline-none" />
-        
-        <select name="taxStatus" value={formData.taxStatus} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-teal-500 focus:border-teal-500 focus:outline-none">
-          <option>Responsable Inscripto</option>
-          <option>Monotributista</option>
-          <option>Exento</option>
-          <option>Consumidor Final</option>
-        </select>
-        
-        <input name="email" type="email" placeholder="Email Corporativo" required onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:ring-teal-500 focus:border-teal-500 focus:outline-none" />
-        <input name="password" type="password" placeholder="Contraseña" required onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:ring-teal-500 focus:border-teal-500 focus:outline-none" />
+        <div>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Dirección Fiscal</label>
+          <input name="address" placeholder="Ej: Av. Rivadavia 1234, CABA" required onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all" />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">CUIT</label>
+          <input name="cuit" placeholder="XX-XXXXXXXX-X" required onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all" />
+        </div>
         
         <div>
-          <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors">
-            Registrarse
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Situación IVA</label>
+          <select name="taxStatus" value={formData.taxStatus} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all">
+            <option>Responsable Inscripto</option>
+            <option>Monotributista</option>
+            <option>Exento</option>
+            <option>Consumidor Final</option>
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Email de Acceso</label>
+          <input name="email" type="email" placeholder="email@empresa.com" required onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all" />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Contraseña</label>
+          <input name="password" type="password" placeholder="••••••••" required onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all" />
+        </div>
+        
+        <div className="pt-2">
+          <button 
+            type="submit" 
+            disabled={isLoading}
+            className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white transition-all transform hover:-translate-y-0.5 disabled:opacity-50
+              ${isClient ? 'bg-teal-600 hover:bg-teal-700 shadow-teal-600/20' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'}
+            `}
+          >
+            {isLoading ? 'Registrando...' : 'Registrar mi Cuenta'}
           </button>
         </div>
       </form>
       <p className="text-sm text-center text-gray-600">
         ¿Ya tienen una cuenta?{' '}
-        <button onClick={onSwitchToLogin} className="font-medium text-teal-600 hover:text-teal-500">
+        <button onClick={onSwitchToLogin} className={`font-bold hover:underline ${isClient ? 'text-teal-600' : 'text-indigo-600'}`}>
           Inicia sesión
         </button>
       </p>

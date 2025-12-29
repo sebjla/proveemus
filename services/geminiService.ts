@@ -1,9 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { OrderItem } from '../types';
 
-// FIX: Per Gemini API guidelines, initialize GoogleGenAI with `process.env.API_KEY` directly.
-// The API key is assumed to be available in the execution environment.
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY! });
+// FIX: Initialize GoogleGenAI with { apiKey: process.env.API_KEY }.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
 const orderSchema = {
   type: Type.ARRAY,
@@ -30,7 +29,8 @@ const orderSchema = {
 export const parseOrderFromText = async (text: string): Promise<Omit<OrderItem, 'id'>[]> => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      // FIX: Use gemini-3-flash-preview instead of gemini-2.5-flash
+      model: "gemini-3-flash-preview",
       contents: `Analiza el siguiente pedido de útiles escolares y conviértelo en una lista estructurada. La marca es opcional. Pedido: "${text}"`,
       config: {
         responseMimeType: "application/json",
@@ -38,6 +38,7 @@ export const parseOrderFromText = async (text: string): Promise<Omit<OrderItem, 
       },
     });
 
+    // FIX: Extract text output from response.text property
     const jsonString = response.text.trim();
     const parsedData = JSON.parse(jsonString);
 

@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from './lib/supabase';
 import type { User } from './types';
-import { UserRole, OrderStatus } from './types';
+import { UserRole } from './types';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 import { ClientDashboard } from './components/ClientDashboard';
@@ -17,61 +18,6 @@ import { LandingPage } from './components/LandingPage';
 import { Sidebar } from './components/Sidebar';
 import { SettingsPage } from './components/SettingsPage';
 import { NotificationCenter } from './components/NotificationCenter';
-
-// Mock user data - Updated to simple users without passwords
-const MOCK_USERS: User[] = [
-    {
-        id: 1,
-        email: 'admin',
-        password: '', // No password required
-        role: UserRole.ADMIN,
-        schoolName: 'Administración Central',
-        address: 'Oficina Central 101',
-        cuit: '30-00000000-1',
-        taxStatus: 'Responsable Inscripto'
-    },
-    {
-        id: 2,
-        email: 'colegio',
-        password: '', // No password required
-        role: UserRole.CLIENT,
-        schoolName: 'Colegio Demo',
-        address: 'Av. Educación 123',
-        cuit: '30-12345678-9',
-        taxStatus: 'Exento'
-    },
-    {
-        id: 3,
-        email: 'proveedor',
-        password: '', // No password required
-        role: UserRole.SUPPLIER,
-        schoolName: 'Distribuidora Escolar',
-        address: 'Calle Industrial 555',
-        cuit: '30-99999999-1',
-        taxStatus: 'Responsable Inscripto'
-    }
-];
-
-// Initialize localStorage with mock users only
-const initializeLocalStorage = () => {
-  // Ensure users exist
-  const existingUsers = localStorage.getItem('users');
-  if (!existingUsers) {
-      localStorage.setItem('users', JSON.stringify(MOCK_USERS));
-  }
-  
-  // Ensure orders array exists but is empty if not present
-  const existingOrders = localStorage.getItem('orders');
-  if (!existingOrders) {
-    localStorage.setItem('orders', JSON.stringify([]));
-  }
-
-  // Ensure quotes array exists
-  const existingQuotes = localStorage.getItem('supplier_quotes');
-  if (!existingQuotes) {
-      localStorage.setItem('supplier_quotes', JSON.stringify([]));
-  }
-};
 
 type Page = 'landing' | 'login' | 'register';
 type DashboardView = 'HOME' | 'SETTINGS' | 'QUOTES' | 'NEW_ORDER' | 'HISTORY' | 'OPERATIONS' | 'USERS' | 'QUOTE_DETAIL' | 'QUOTE_COMPARISON' | 'SHIPMENTS';
@@ -92,6 +38,8 @@ const App: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [page, setPage] = useState<Page>('landing');
     const [authError, setAuthError] = useState<string | null>(null);
+    const [registerRole, setRegisterRole] = useState<UserRole>(UserRole.CLIENT);
+    const [isLoading, setIsLoading] = useState(true);
     
     // Dashboard Navigation State
     const [currentDashboardView, setCurrentDashboardView] = useState<DashboardView>('HOME');
@@ -99,34 +47,83 @@ const App: React.FC = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     useEffect(() => {
-        initializeLocalStorage();
-        const loggedInUser = sessionStorage.getItem('user');
-        if (loggedInUser) {
-            setUser(JSON.parse(loggedInUser));
-        }
+        // Check for active session on load
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+                
+                if (profile) {
+                    setUser({
+                        id: profile.id,
+                        email: profile.email,
+                        role: profile.role as UserRole,
+                        schoolName: profile.school_name,
+                        address: profile.address,
+                        cuit: profile.cuit,
+                        taxStatus: profile.tax_status
+                    });
+                }
+            }
+            setIsLoading(false);
+        };
+
+        checkSession();
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+                
+                if (profile) {
+                    setUser({
+                        id: profile.id,
+                        email: profile.email,
+                        role: profile.role as UserRole,
+                        schoolName: profile.school_name,
+                        address: profile.address,
+                        cuit: profile.cuit,
+                        taxStatus: profile.tax_status
+                    });
+                }
+            } else if (event === 'SIGNED_OUT') {
+                setUser(null);
+                setPage('landing');
+            }
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
-    const handleLogin = (email: string, pass: string) => {
-        const users: User[] = JSON.parse(localStorage.getItem('users') || '[]');
-        // Check exact match for email, and match password (empty string matches empty string)
-        const foundUser = users.find(u => u.email === email && u.password === pass);
+    const handleLogin = async (email: string, pass: string) => {
+        setAuthError(null);
+        const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password: pass,
+        });
         
-        if (foundUser) {
-            setUser(foundUser);
-            sessionStorage.setItem('user', JSON.stringify(foundUser));
-            setAuthError(null);
-            setCurrentDashboardView('HOME'); // Reset view on login
+        if (error) {
+            setAuthError(error.message);
         } else {
-            setAuthError('Usuario no encontrado o credenciales incorrectas.');
+            setCurrentDashboardView('HOME'); 
         }
     };
     
-    const handleLogout = () => {
-        setUser(null);
-        sessionStorage.removeItem('user');
-        setPage('landing');
-        setCurrentDashboardView('HOME');
-        setSelectedOrderId(null);
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+    };
+
+    const handleNavigateToRegister = (role?: UserRole) => {
+        if (role) setRegisterRole(role);
+        setPage('register');
     };
 
     const handleSupplierSelectOrder = (orderId: string) => {
@@ -134,17 +131,14 @@ const App: React.FC = () => {
         setCurrentDashboardView('QUOTE_DETAIL');
     };
 
-    // Modified to accept optional order ID for comparison view
     const handleDashboardNavigate = (view: string, orderId?: string) => {
         if (orderId) setSelectedOrderId(orderId);
         setCurrentDashboardView(view as DashboardView);
     };
     
-    // Router logic for dashboard content
     const renderDashboardContent = () => {
         if (!user) return null;
 
-        // Settings is common for all
         if (currentDashboardView === 'SETTINGS') {
              return <SettingsPage user={user} />;
         }
@@ -152,7 +146,6 @@ const App: React.FC = () => {
         switch (user.role) {
             case UserRole.ADMIN:
                 if (currentDashboardView === 'QUOTES') {
-                    // This is technically unused by admin now but kept for safety
                     return <SupplierOrdersList onSelectOrder={handleSupplierSelectOrder} />;
                 }
                 if (currentDashboardView === 'QUOTE_DETAIL' && selectedOrderId) {
@@ -168,7 +161,7 @@ const App: React.FC = () => {
                     return <QuoteRequestView orderId={selectedOrderId} onBack={() => setCurrentDashboardView('QUOTES')} />;
                 }
                 if (currentDashboardView === 'HOME') {
-                    return <SupplierDashboard onNavigate={(v) => setCurrentDashboardView(v as DashboardView)} />;
+                    return <SupplierDashboard user={user} onNavigate={(v) => setCurrentDashboardView(v as DashboardView)} />;
                 }
                 if (currentDashboardView === 'SHIPMENTS') {
                     return <SupplierShipments onBack={() => setCurrentDashboardView('HOME')} />;
@@ -176,7 +169,7 @@ const App: React.FC = () => {
                 if (currentDashboardView === 'QUOTES') {
                    return <SupplierOrdersList onSelectOrder={handleSupplierSelectOrder} />;
                 }
-                return <SupplierDashboard onNavigate={(v) => setCurrentDashboardView(v as DashboardView)} />; // Default
+                return <SupplierDashboard user={user} onNavigate={(v) => setCurrentDashboardView(v as DashboardView)} />; 
             
             case UserRole.CLIENT:
             default:
@@ -184,7 +177,17 @@ const App: React.FC = () => {
         }
     };
 
-    // If user is logged in, show the Dashboard with Sidebar
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+                    <p className="text-teal-900 font-black tracking-widest uppercase text-xs">Conectando con Proveemus...</p>
+                </div>
+            </div>
+        );
+    }
+
     if (user) {
         return (
             <div className="flex min-h-screen bg-slate-50 font-sans">
@@ -199,7 +202,6 @@ const App: React.FC = () => {
                 />
 
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                    {/* Mobile Header */}
                     <header className="md:hidden bg-white shadow-sm border-b border-gray-200 flex items-center justify-between p-4">
                         <div className="flex items-center gap-2">
                             <BookOpenIcon className="w-6 h-6 text-teal-600"/>
@@ -225,7 +227,6 @@ const App: React.FC = () => {
         );
     }
     
-    // Auth & Landing Pages
     const AuthPageLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
         <div className="min-h-screen bg-slate-50 flex flex-col">
             <nav className="bg-white shadow-sm border-b border-teal-100">
@@ -268,13 +269,22 @@ const App: React.FC = () => {
                 return (
                     <AuthPageLayout>
                          <div className="flex justify-center w-full">
-                           <RegisterPage onRegister={() => setPage('login')} onSwitchToLogin={() => setPage('login')} />
+                           <RegisterPage 
+                            initialRole={registerRole}
+                            onRegister={() => setPage('login')} 
+                            onSwitchToLogin={() => setPage('login')} 
+                           />
                         </div>
                     </AuthPageLayout>
                );
             case 'landing':
             default:
-                return <LandingPage onNavigateToLogin={() => setPage('login')} onNavigateToRegister={() => setPage('register')} />;
+                return (
+                    <LandingPage 
+                        onNavigateToLogin={() => setPage('login')} 
+                        onNavigateToRegister={handleNavigateToRegister} 
+                    />
+                );
         }
     }
 

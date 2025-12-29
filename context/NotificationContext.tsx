@@ -1,5 +1,7 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '../lib/supabase';
+import { UserRole } from '../types';
 
 export interface AppNotification {
   id: string;
@@ -8,6 +10,8 @@ export interface AppNotification {
   type: 'info' | 'success' | 'warning' | 'alert';
   timestamp: string;
   read: boolean;
+  target_role?: UserRole;
+  target_user_id?: string;
 }
 
 interface NotificationContextType {
@@ -15,7 +19,7 @@ interface NotificationContextType {
   unreadCount: number;
   isOpen: boolean;
   toggleNotificationCenter: () => void;
-  addNotification: (title: string, message: string, type?: AppNotification['type']) => void;
+  addNotification: (title: string, message: string, type?: AppNotification['type'], targetRole?: UserRole, targetUserId?: string) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   clearAll: () => void;
@@ -31,82 +35,85 @@ export const useNotifications = () => {
   return context;
 };
 
-// Initial Mock Data to populate the center
-const MOCK_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: '1',
-    title: 'Cotización Recibida',
-    message: 'Distribuidora Escolar ha enviado una oferta para el pedido #258901.',
-    type: 'success',
-    timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 mins ago
-    read: false,
-  },
-  {
-    id: '2',
-    title: 'Pedido Entregado',
-    message: 'El pedido #258850 ha sido marcado como entregado por el transportista.',
-    type: 'info',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-    read: true,
-  },
-  {
-    id: '3',
-    title: 'Alerta de Stock',
-    message: 'Uno de los proveedores reportó falta de stock en "Resma A4".',
-    type: 'warning',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-    read: true,
-  }
-];
-
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Load from local storage or use mock
   useEffect(() => {
-    const stored = localStorage.getItem('app_notifications');
-    if (stored) {
-      setNotifications(JSON.parse(stored));
-    } else {
-      setNotifications(MOCK_NOTIFICATIONS);
-    }
+    const fetchSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) setCurrentUserId(session.user.id);
+    };
+    fetchSession();
   }, []);
 
-  // Save to local storage whenever changes
-  useEffect(() => {
-    if (notifications.length > 0) {
-      localStorage.setItem('app_notifications', JSON.stringify(notifications));
+  const fetchNotifications = useCallback(async () => {
+    if (!currentUserId) return;
+    const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .or(`target_user_id.eq.${currentUserId},target_user_id.is.null`)
+        .order('timestamp', { ascending: false });
+    
+    if (!error && data) {
+      setNotifications(data);
     }
-  }, [notifications]);
+  }, [currentUserId]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const toggleNotificationCenter = () => setIsOpen(prev => !prev);
 
-  const addNotification = (title: string, message: string, type: AppNotification['type'] = 'info') => {
-    const newNote: AppNotification = {
-      id: Date.now().toString(),
+  const addNotification = useCallback(async (
+    title: string, 
+    message: string, 
+    type: AppNotification['type'] = 'info',
+    targetRole?: UserRole,
+    targetUserId?: string
+  ) => {
+    const { error } = await supabase.from('notifications').insert({
       title,
       message,
       type,
-      timestamp: new Date().toISOString(),
-      read: false,
-    };
-    setNotifications(prev => [newNote, ...prev]);
+      target_role: targetRole,
+      target_user_id: targetUserId
+    });
+    
+    if (!error) fetchNotifications();
+  }, [fetchNotifications]);
+
+  const markAsRead = async (id: string) => {
+    const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', id);
+    
+    if (!error) fetchNotifications();
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const markAllAsRead = async () => {
+    if (!currentUserId) return;
+    const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('target_user_id', currentUserId);
+    
+    if (!error) fetchNotifications();
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
-    localStorage.removeItem('app_notifications');
+  const clearAll = async () => {
+    if (!currentUserId) return;
+    const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('target_user_id', currentUserId);
+    
+    if (!error) fetchNotifications();
   };
 
   return (

@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '../lib/supabase';
 import type { Order, OrderItem, User } from '../types';
-import { OrderStatus } from '../types';
+import { OrderStatus, UserRole } from '../types';
 import { NewOrderForm } from './NewOrderForm';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { SpinnerIcon } from './icons/SpinnerIcon';
@@ -11,36 +12,9 @@ import { ShieldCheckIcon } from './icons/ShieldCheckIcon';
 import { PlusIcon } from './icons/PlusIcon';
 import { ListIcon } from './icons/ListIcon';
 import { OrderDetailsPanel } from './OrderDetailsPanel';
-
-
-const getClientOrders = async (userId: number): Promise<Order[]> => {
-    const allOrders: Order[] = JSON.parse(localStorage.getItem('orders') || '[]');
-    return allOrders.filter(order => order.userId === userId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-};
-
-const createNewOrder = async (
-    userId: number, 
-    schoolName: string, 
-    items: Omit<OrderItem, 'id'>[], 
-    details: { expirationDate: string; requestedDeliveryDate: string; termsAndConditions: string; }
-): Promise<Order> => {
-    const allOrders: Order[] = JSON.parse(localStorage.getItem('orders') || '[]');
-    const newOrder: Order = {
-        id: Date.now(),
-        userId,
-        schoolName,
-        items: items.map((item, index) => ({ ...item, id: index })),
-        status: OrderStatus.PENDING_APPROVAL,
-        createdAt: new Date().toISOString(),
-        expirationDate: details.expirationDate,
-        requestedDeliveryDate: details.requestedDeliveryDate,
-        termsAndConditions: details.termsAndConditions,
-        comments: [] 
-    };
-    const updatedOrders = [...allOrders, newOrder];
-    localStorage.setItem('orders', JSON.stringify(updatedOrders));
-    return newOrder;
-};
+import { useNotifications } from '../context/NotificationContext';
+import { useToast } from '../context/ToastContext';
+import { ShieldCheckIcon as ConfirmationIcon } from './icons/ShieldCheckIcon';
 
 interface ClientDashboardProps {
     user: User;
@@ -64,13 +38,31 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const { addNotification } = useNotifications();
+    const { showToast } = useToast();
 
     const fetchOrders = useCallback(async () => {
         setIsLoading(true);
-        // Simulate network delay for better UX on fast devices
-        await new Promise(res => setTimeout(res, 300));
-        const userOrders = await getClientOrders(user.id);
-        setOrders(userOrders);
+        const { data, error } = await supabase
+            .from('orders')
+            .select(`
+                *,
+                order_items (*)
+            `)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+        if (!error && data) {
+            setOrders(data.map(o => ({
+                ...o,
+                items: o.order_items,
+                schoolName: o.school_name,
+                createdAt: o.created_at,
+                expirationDate: o.expiration_date,
+                requestedDeliveryDate: o.requested_delivery_date,
+                termsAndConditions: o.terms_and_conditions
+            })));
+        }
         setIsLoading(false);
     }, [user.id]);
 
@@ -93,21 +85,80 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
 
     const handleOrderSubmit = async (items: Omit<OrderItem, 'id'>[], details: { expirationDate: string; requestedDeliveryDate: string; termsAndConditions: string; }) => {
         setIsSubmitting(true);
-        await createNewOrder(user.id, user.schoolName, items, details);
-        await fetchOrders(); 
+        
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert({
+                user_id: user.id,
+                school_name: user.schoolName,
+                status: OrderStatus.PENDING_APPROVAL,
+                expiration_date: details.expirationDate,
+                requested_delivery_date: details.requestedDeliveryDate,
+                terms_and_conditions: details.termsAndConditions
+            })
+            .select()
+            .single();
+
+        if (orderError) {
+            showToast("Error al crear la solicitud", "error");
+            setIsSubmitting(false);
+            return;
+        }
+
+        const { error: itemsError } = await supabase
+            .from('order_items')
+            .insert(items.map(item => ({
+                order_id: order.id,
+                quantity: item.quantity,
+                product: item.product,
+                brand: item.brand
+            })));
+
+        if (itemsError) {
+            showToast("Error al cargar los artículos", "error");
+        } else {
+            showToast("Solicitud enviada con éxito", "success");
+            addNotification(
+                "Nueva Solicitud Recibida", 
+                `${user.schoolName} ha creado una nueva solicitud de cotización.`, 
+                "info", 
+                UserRole.ADMIN
+            );
+            await fetchOrders();
+            if (onNavigate) onNavigate('HISTORY');
+        }
+        
         setIsSubmitting(false);
-        if (onNavigate) onNavigate('HISTORY');
     };
 
-    const handleUpdateOrder = (updatedOrder: Order) => {
-        // Update local state
-        setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
-        setSelectedOrder(updatedOrder);
+    const handleUpdateOrder = async (updatedOrder: Order) => {
+        const { error } = await supabase
+            .from('orders')
+            .update({ status: updatedOrder.status })
+            .eq('id', updatedOrder.id);
+        
+        if (!error) {
+            setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+            setSelectedOrder(updatedOrder);
+        }
+    };
 
-        // Update persistence
-        const allOrders: Order[] = JSON.parse(localStorage.getItem('orders') || '[]');
-        const newAllOrders = allOrders.map(o => o.id === updatedOrder.id ? updatedOrder : o);
-        localStorage.setItem('orders', JSON.stringify(newAllOrders));
+    const handleConfirmReception = async (orderId: number) => {
+        const { error } = await supabase
+            .from('orders')
+            .update({ status: OrderStatus.DELIVERED })
+            .eq('id', orderId);
+
+        if (!error) {
+            showToast("¡Recepción confirmada!", "success");
+            addNotification(
+                "Entrega Confirmada", 
+                `El cliente ${user.schoolName} ha confirmado la recepción de los materiales.`, 
+                "success", 
+                UserRole.SUPPLIER
+            );
+            await fetchOrders();
+        }
     };
     
     const renderContent = () => {
@@ -115,15 +166,15 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
             case 'NEW_ORDER':
                 return (
                     <motion.div key="newOrder" variants={containerVariants} initial="hidden" animate="visible" exit="exit">
-                        <h2 className="text-3xl font-bold text-gray-900 mb-8">Nueva Solicitud de Compras</h2>
+                        <h2 className="text-4xl font-black text-gray-900 mb-8 tracking-tighter">Nueva Solicitud de Compras</h2>
                         <NewOrderForm onSubmit={handleOrderSubmit} isSubmitting={isSubmitting} />
                     </motion.div>
                 );
             case 'HISTORY':
                 return (
                      <div className="space-y-6">
-                        <h2 className="text-3xl font-bold text-gray-900 mb-8">Historial de Compras</h2>
-                         <div className="bg-white p-6 md:p-8 rounded-lg shadow-md border border-gray-200">
+                        <h2 className="text-4xl font-black text-gray-900 mb-8 tracking-tighter">Mis Solicitudes de Abastecimiento</h2>
+                         <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-md border border-gray-200">
                             {isLoading ? (
                                 <div className="flex justify-center items-center p-8">
                                     <SpinnerIcon className="w-8 h-8 text-teal-600" />
@@ -132,20 +183,19 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
                                 <p className="text-gray-500 text-center py-4">Aún no se han registrado órdenes de compra.</p>
                             ) : (
                                 <div className="overflow-x-auto">
-                                    {/* Simplified Table Structure to ensure visibility */}
                                     <table className="w-full text-sm text-left border-collapse">
                                         <thead className="bg-gray-100 text-gray-900 border-b border-gray-300">
                                             <tr>
-                                                <th scope="col" className="px-6 py-4 font-bold">ID Orden</th>
-                                                <th scope="col" className="px-6 py-4 font-bold">Fecha</th>
-                                                <th scope="col" className="px-6 py-4 font-bold">Ítems</th>
-                                                <th scope="col" className="px-6 py-4 font-bold">Estado</th>
-                                                <th scope="col" className="px-6 py-4 font-bold text-right">Detalles</th>
+                                                <th scope="col" className="px-6 py-4 font-black uppercase text-[10px] tracking-widest">ID Orden</th>
+                                                <th scope="col" className="px-6 py-4 font-black uppercase text-[10px] tracking-widest">Fecha</th>
+                                                <th scope="col" className="px-6 py-4 font-black uppercase text-[10px] tracking-widest">Ítems</th>
+                                                <th scope="col" className="px-6 py-4 font-black uppercase text-[10px] tracking-widest">Estado</th>
+                                                <th scope="col" className="px-6 py-4 font-black uppercase text-[10px] tracking-widest text-right">Acción</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white">
                                             {orders.map((order) => (
-                                                <tr key={order.id} className="border-b border-gray-200 hover:bg-gray-50">
+                                                <tr key={order.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
                                                     <td className="px-6 py-4 font-bold text-gray-900">
                                                         #{order.id.toString().slice(-6)}
                                                     </td>
@@ -158,12 +208,21 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
                                                     <td className="px-6 py-4">
                                                         <OrderStatusBadge status={order.status} />
                                                     </td>
-                                                    <td className="px-6 py-4 text-right">
+                                                    <td className="px-6 py-4 text-right flex items-center justify-end gap-3">
+                                                        {order.status === OrderStatus.ON_ITS_WAY && (
+                                                            <button 
+                                                                onClick={() => handleConfirmReception(order.id)}
+                                                                className="flex items-center px-4 py-2 bg-emerald-600 text-white text-xs font-black rounded-xl shadow-lg hover:bg-emerald-700 transition-colors"
+                                                            >
+                                                                <ConfirmationIcon className="w-3 h-3 mr-1" />
+                                                                Confirmar
+                                                            </button>
+                                                        )}
                                                         <button 
                                                             onClick={() => setSelectedOrder(order)}
-                                                            className="text-teal-700 hover:text-teal-900 font-bold hover:underline"
+                                                            className="text-teal-700 hover:text-teal-900 font-black hover:underline"
                                                         >
-                                                            Ver Orden
+                                                            Detalles
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -179,43 +238,47 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
             default:
                  return (
                     <motion.div key="dashboard" className="space-y-12" variants={containerVariants} initial="hidden" animate="visible" exit="exit">
-                         <h2 className="text-3xl font-bold text-gray-900 mb-4">Centro de Compras</h2>
+                         <h2 className="text-4xl font-black text-gray-900 mb-4 tracking-tighter leading-none">Centro de Compras</h2>
                         <motion.div className="grid md:grid-cols-3 gap-6" variants={containerVariants}>
-                            <motion.div variants={itemVariants} className="bg-white rounded-xl shadow-md p-6 border-l-4 border-teal-500">
-                                <div className="w-12 h-12 bg-teal-500 rounded-lg flex items-center justify-center mb-4"><PackageIcon className="h-6 w-6 text-white"/></div>
-                                <p className="text-gray-600 text-sm">Solicitudes Activas</p>
-                                <p className="text-3xl font-bold text-gray-900">{stats.active}</p>
+                            <motion.div variants={itemVariants} className="bg-white rounded-[2rem] shadow-xl p-8 border-l-8 border-teal-500">
+                                <div className="w-14 h-14 bg-teal-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-teal-500/20"><PackageIcon className="h-7 w-7 text-white"/></div>
+                                <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Solicitudes Activas</p>
+                                <p className="text-4xl font-black text-gray-900">{stats.active}</p>
                             </motion.div>
-                            <motion.div variants={itemVariants} className="bg-white rounded-xl shadow-md p-6 border-l-4 border-amber-500">
-                                <div className="w-12 h-12 bg-amber-500 rounded-lg flex items-center justify-center mb-4"><SpinnerIcon className="h-6 w-6 text-white"/></div>
-                                <p className="text-gray-600 text-sm">En Proceso</p>
-                                <p className="text-3xl font-bold text-gray-900">{stats.inPreparation}</p>
+                            <motion.div variants={itemVariants} className="bg-white rounded-[2rem] shadow-xl p-8 border-l-8 border-amber-500">
+                                <div className="w-14 h-14 bg-amber-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-amber-500/20"><SpinnerIcon className="h-7 w-7 text-white"/></div>
+                                <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">En Proceso</p>
+                                <p className="text-4xl font-black text-gray-900">{stats.inPreparation}</p>
                             </motion.div>
-                            <motion.div variants={itemVariants} className="bg-white rounded-xl shadow-md p-6 border-l-4 border-emerald-500">
-                                <div className="w-12 h-12 bg-emerald-500 rounded-lg flex items-center justify-center mb-4"><ShieldCheckIcon className="h-6 w-6 text-white"/></div>
-                                <p className="text-gray-600 text-sm">Entregados</p>
-                                <p className="text-3xl font-bold text-gray-900">{stats.completed}</p>
+                            <motion.div variants={itemVariants} className="bg-white rounded-[2rem] shadow-xl p-8 border-l-8 border-emerald-500">
+                                <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/20"><ShieldCheckIcon className="h-7 w-7 text-white"/></div>
+                                <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Entregados</p>
+                                <p className="text-4xl font-black text-gray-900">{stats.completed}</p>
                             </motion.div>
                         </motion.div>
                         
-                        <motion.div className="grid md:grid-cols-2 gap-6" variants={containerVariants}>
-                            <motion.div variants={itemVariants} onClick={() => onNavigate && onNavigate('NEW_ORDER')} whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }} className="bg-white rounded-xl shadow-md p-8 cursor-pointer border border-teal-50 hover:border-teal-100 transition-colors">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h2 className="text-2xl font-bold text-gray-900">Nueva Solicitud</h2>
-                                    <PlusIcon className="h-8 w-8 text-teal-600" />
+                        <motion.div className="grid md:grid-cols-2 gap-10" variants={containerVariants}>
+                            <motion.div variants={itemVariants} onClick={() => onNavigate && onNavigate('NEW_ORDER')} whileHover={{ y: -8 }} className="bg-white rounded-[3rem] shadow-2xl p-10 cursor-pointer border border-teal-50 hover:border-teal-100 transition-all group">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-3xl font-black text-gray-900 tracking-tighter leading-none">Nueva <br/>Solicitud</h2>
+                                    <div className="w-16 h-16 bg-teal-50 rounded-2xl flex items-center justify-center group-hover:bg-teal-600 transition-colors">
+                                        <PlusIcon className="h-8 w-8 text-teal-600 group-hover:text-white" />
+                                    </div>
                                 </div>
-                                <p className="text-gray-600 mb-6">Genera una nueva requisición de insumos o equipamiento para tu empresa.</p>
-                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full px-4 py-2 bg-teal-600 text-white font-semibold rounded-md hover:bg-teal-700 transition-colors">
+                                <p className="text-gray-500 text-lg font-medium mb-10 leading-relaxed">Genera una nueva requisición de insumos o equipamiento escolar de forma rápida.</p>
+                                <motion.button whileHover={{ scale: 1.02 }} className="w-full px-8 py-5 bg-teal-600 text-white text-xl font-black rounded-[1.5rem] shadow-xl shadow-teal-600/20">
                                     Solicitar Insumos
                                 </motion.button>
                             </motion.div>
-                            <motion.div variants={itemVariants} onClick={() => onNavigate && onNavigate('HISTORY')} whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }} className="bg-white rounded-xl shadow-md p-8 cursor-pointer border border-teal-50 hover:border-teal-100 transition-colors">
-                                 <div className="flex items-center justify-between mb-4">
-                                    <h2 className="text-2xl font-bold text-gray-900">Mis Órdenes</h2>
-                                    <ListIcon className="h-8 w-8 text-teal-600" />
+                            <motion.div variants={itemVariants} onClick={() => onNavigate && onNavigate('HISTORY')} whileHover={{ y: -8 }} className="bg-white rounded-[3rem] shadow-2xl p-10 cursor-pointer border border-teal-50 hover:border-teal-100 transition-all group">
+                                 <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-3xl font-black text-gray-900 tracking-tighter leading-none">Mis <br/>Órdenes</h2>
+                                    <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center group-hover:bg-gray-900 transition-colors">
+                                        <ListIcon className="h-8 w-8 text-gray-400 group-hover:text-white" />
+                                    </div>
                                 </div>
-                                <p className="text-gray-600 mb-6">Consulta el historial de compras y el estado de entrega.</p>
-                                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full px-4 py-2 bg-gray-100 text-gray-800 font-semibold rounded-md border border-gray-300 hover:bg-gray-200 transition-colors">
+                                <p className="text-gray-500 text-lg font-medium mb-10 leading-relaxed">Consulta el historial de tus compras pasadas y monitorea el estado de entrega en tiempo real.</p>
+                                <motion.button whileHover={{ scale: 1.02 }} className="w-full px-8 py-5 bg-gray-100 text-gray-800 text-xl font-black rounded-[1.5rem] border border-gray-300 hover:bg-gray-200">
                                     Ver Historial
                                 </motion.button>
                             </motion.div>
