@@ -39,7 +39,7 @@ export const parseOrderFromText = async (text: string): Promise<Omit<OrderItem, 
     });
 
     // FIX: Extract text output from response.text property
-    const jsonString = response.text.trim();
+    const jsonString = response.text!.trim();
     const parsedData = JSON.parse(jsonString);
 
     if (Array.isArray(parsedData)) {

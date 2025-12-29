@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import type { User } from '../types';
 import { SpinnerIcon } from './icons/SpinnerIcon';
@@ -70,7 +69,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
                 value={formData.cuit}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 bg-gray-50 text-gray-700"
-                readOnly
+                readOnly // CUIT is usually not editable after initial registration
               />
             </div>
             <div>

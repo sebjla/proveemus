@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Order, User, Comment, OrderStatus, UserRole } from '../types';
@@ -39,7 +38,7 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
 
     const newComment: Comment = {
       id: Date.now().toString(),
-      userId: currentUser.id,
+      userId: currentUser.id, // currentUser.id is string
       userName: currentUser.schoolName, // Using schoolName as display name
       text: newMessage,
       timestamp: new Date().toISOString(),
@@ -183,7 +182,7 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
                       </div>
                     ) : (
                       order.comments.map((msg) => {
-                        const isMe = msg.userId === currentUser.id;
+                        const isMe = msg.userId === currentUser.id; // msg.userId and currentUser.id are string
                         return (
                           <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                              <div className={`flex items-baseline gap-2 mb-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>

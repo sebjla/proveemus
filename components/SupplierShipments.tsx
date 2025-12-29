@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Order, OrderStatus, UserRole } from '../types';
@@ -37,7 +36,8 @@ export const SupplierShipments: React.FC<SupplierShipmentsProps> = ({ onBack }) 
             items: o.order_items,
             createdAt: o.created_at,
             schoolName: o.school_name,
-            dispatchDetails: o.dispatch_details
+            dispatchDetails: o.dispatch_details,
+            userId: o.user_id // Ensure userId is correctly mapped
         })));
     }
     setLoading(false);
@@ -72,7 +72,7 @@ export const SupplierShipments: React.FC<SupplierShipmentsProps> = ({ onBack }) 
             `Tu pedido #${selectedOrderForDispatch.id.toString().slice(-6)} ha sido despachado y está en viaje.`, 
             "info", 
             UserRole.CLIENT,
-            selectedOrderForDispatch.userId as any
+            selectedOrderForDispatch.userId // userId is now string, no 'as any' needed
         );
         setSelectedOrderForDispatch(null);
         setDispatchForm({ driverName: '', vehiclePlate: '' });

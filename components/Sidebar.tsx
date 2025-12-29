@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { UserRole, OrderStatus } from '../types';
@@ -40,9 +39,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const { count } = await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', OrderStatus.PENDING_APPROVAL);
             setCounts(prev => ({ ...prev, adminPending: count || 0 }));
         } else if (user.role === UserRole.SUPPLIER) {
-            const { count: quotes } = await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', OrderStatus.IN_REVIEW);
-            const { count: logistics } = await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', OrderStatus.IN_PREPARATION);
-            setCounts(prev => ({ ...prev, supplierQuotes: quotes || 0, supplierLogistics: logistics || 0 }));
+            // Supplier quotes count: orders in IN_REVIEW
+            const { count: quotesCount } = await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', OrderStatus.IN_REVIEW);
+            // Supplier logistics count: orders in IN_PREPARATION where supplier is involved
+            // This would ideally join with supplier_quotes and check 'chosen_supplier_id' on orders if implemented.
+            // For now, it counts all in_preparation for simplicity of demo
+            const { count: logisticsCount } = await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', OrderStatus.IN_PREPARATION);
+            setCounts(prev => ({ ...prev, supplierQuotes: quotesCount || 0, supplierLogistics: logisticsCount || 0 }));
         }
     };
     fetchCounts();

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
@@ -49,7 +48,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
                 *,
                 order_items (*)
             `)
-            .eq('user_id', user.id)
+            .eq('user_id', user.id) // user.id is string
             .order('created_at', { ascending: false });
 
         if (!error && data) {
@@ -60,7 +59,8 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
                 createdAt: o.created_at,
                 expirationDate: o.expiration_date,
                 requestedDeliveryDate: o.requested_delivery_date,
-                termsAndConditions: o.terms_and_conditions
+                termsAndConditions: o.terms_and_conditions,
+                userId: o.user_id // Ensure userId is correctly mapped
             })));
         }
         setIsLoading(false);
@@ -89,7 +89,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
         const { data: order, error: orderError } = await supabase
             .from('orders')
             .insert({
-                user_id: user.id,
+                user_id: user.id, // user.id is string
                 school_name: user.schoolName,
                 status: OrderStatus.PENDING_APPROVAL,
                 expiration_date: details.expirationDate,
@@ -122,7 +122,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
                 "Nueva Solicitud Recibida", 
                 `${user.schoolName} ha creado una nueva solicitud de cotización.`, 
                 "info", 
-                UserRole.ADMIN
+                UserRole.ADMIN // Target ADMIN role
             );
             await fetchOrders();
             if (onNavigate) onNavigate('HISTORY');
@@ -155,7 +155,11 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
                 "Entrega Confirmada", 
                 `El cliente ${user.schoolName} ha confirmado la recepción de los materiales.`, 
                 "success", 
-                UserRole.SUPPLIER
+                UserRole.SUPPLIER,
+                // You would typically get the chosen supplier's ID from the order.
+                // For this demo, let's assume a generic supplier notification for now.
+                // If a chosen_supplier_id column existed in 'orders', you would use:
+                // order.chosen_supplier_id as string
             );
             await fetchOrders();
         }

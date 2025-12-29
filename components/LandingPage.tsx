@@ -49,7 +49,8 @@ const AnimatedLine = () => (
   </div>
 );
 
-const WorkflowStep = ({ icon: Icon, title, description, stepNumber, delay }: { icon: any, title: string, description: string, string, delay: number }) => (
+// FIX: Correct WorkflowStep component prop types
+const WorkflowStep = ({ icon: Icon, title, description, stepNumber, delay }: { icon: React.ElementType, title: string, description: string, stepNumber: string, delay: number }) => (
   <motion.div 
     initial={{ opacity: 0, y: 20 }}
     whileInView={{ opacity: 1, y: 0 }}

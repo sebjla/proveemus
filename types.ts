@@ -1,4 +1,3 @@
-
 export enum UserRole {
   CLIENT = 'CLIENT',
   ADMIN = 'ADMIN',
@@ -15,9 +14,8 @@ export enum OrderStatus {
 }
 
 export interface User {
-  id: number;
+  id: string; // Changed to string (UUID from Supabase auth)
   email: string;
-  password?: string; // Should not be stored long-term in a real app
   role: UserRole;
   schoolName: string;
   address: string;
@@ -26,7 +24,7 @@ export interface User {
 }
 
 export interface OrderItem {
-  id: number;
+  id: number; // Stays number (bigint from Supabase)
   quantity: number;
   product: string;
   brand: string;
@@ -34,7 +32,7 @@ export interface OrderItem {
 
 export interface Comment {
   id: string;
-  userId: number;
+  userId: string; // Changed to string (references User.id)
   userName: string;
   text: string;
   timestamp: string;
@@ -49,8 +47,8 @@ export interface DispatchDetails {
 }
 
 export interface Order {
-  id: number;
-  userId: number;
+  id: number; // Stays number (bigint from Supabase)
+  userId: string; // Changed to string (references User.id)
   schoolName: string;
   items: OrderItem[];
   status: OrderStatus;

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
@@ -43,7 +42,7 @@ const App: React.FC = () => {
     
     // Dashboard Navigation State
     const [currentDashboardView, setCurrentDashboardView] = useState<DashboardView>('HOME');
-    const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+    const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null); // Order IDs from routes/UI are handled as strings
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     useEffect(() => {
@@ -59,7 +58,7 @@ const App: React.FC = () => {
                 
                 if (profile) {
                     setUser({
-                        id: profile.id,
+                        id: profile.id, // profile.id is string (UUID)
                         email: profile.email,
                         role: profile.role as UserRole,
                         schoolName: profile.school_name,
@@ -85,7 +84,7 @@ const App: React.FC = () => {
                 
                 if (profile) {
                     setUser({
-                        id: profile.id,
+                        id: profile.id, // profile.id is string (UUID)
                         email: profile.email,
                         role: profile.role as UserRole,
                         schoolName: profile.school_name,

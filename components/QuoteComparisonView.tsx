@@ -22,10 +22,17 @@ export const QuoteComparisonView: React.FC<QuoteComparisonViewProps> = ({ orderI
   useEffect(() => {
     const fetchData = async () => {
         setLoading(true);
-        const { data: orderData } = await supabase.from('orders').select('*, order_items(*)').eq('id', orderId).single();
-        const { data: quotesData } = await supabase.from('supplier_quotes').select('*').eq('order_id', orderId);
+        const { data: orderData } = await supabase
+          .from('orders')
+          .select('*, order_items(*)')
+          .eq('id', Number(orderId)) // orderId is string from route, convert to number for DB
+          .single();
+        const { data: quotesData } = await supabase
+          .from('supplier_quotes')
+          .select('*')
+          .eq('order_id', Number(orderId)); // orderId is string from route, convert to number for DB
         
-        if (orderData) setOrder({ ...orderData, items: orderData.order_items });
+        if (orderData) setOrder({ ...orderData, items: orderData.order_items, userId: orderData.user_id }); // Map user_id to userId
         if (quotesData) setQuotes(quotesData);
         setLoading(false);
     };
@@ -34,12 +41,14 @@ export const QuoteComparisonView: React.FC<QuoteComparisonViewProps> = ({ orderI
 
   const handleAdjudicate = async () => {
     setIsAdjudicating(true);
-    const { error } = await supabase.from('orders').update({ status: OrderStatus.IN_PREPARATION }).eq('id', orderId);
+    const { error } = await supabase.from('orders').update({ status: OrderStatus.IN_PREPARATION }).eq('id', Number(orderId)); // orderId to number
     
     if (!error) {
         showToast("Licitación Adjudicada", "success");
-        // FIX: Use order?.userId and convert to string for the targetUserId in addNotification
-        addNotification("Orden Adjudicada", "Tu solicitud ha sido adjudicada y está en preparación.", "success", UserRole.CLIENT, order?.userId.toString());
+        // order?.userId is now string
+        if (order?.userId) {
+          addNotification("Orden Adjudicada", "Tu solicitud ha sido adjudicada y está en preparación.", "success", UserRole.CLIENT, order.userId);
+        }
         onBack();
     }
     setIsAdjudicating(false);

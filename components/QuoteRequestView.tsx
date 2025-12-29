@@ -30,17 +30,17 @@ export const QuoteRequestView: React.FC<QuoteRequestViewProps> = ({ orderId, onB
         const { data: orderData } = await supabase
             .from('orders')
             .select('*, order_items(*)')
-            .eq('id', orderId)
+            .eq('id', Number(orderId)) // orderId is string from route, convert to number for DB
             .single();
 
         if (orderData) {
-            setOrder({ ...orderData, items: orderData.order_items });
+            setOrder({ ...orderData, items: orderData.order_items, userId: orderData.user_id }); // Map user_id to userId
             
             const { data: quoteData } = await supabase
                 .from('supplier_quotes')
                 .select('*')
-                .eq('order_id', orderId)
-                .eq('supplier_id', session.user.id)
+                .eq('order_id', Number(orderId)) // orderId is string from route, convert to number for DB
+                .eq('supplier_id', session.user.id) // session.user.id is string
                 .single();
             
             if (quoteData) {
@@ -50,7 +50,7 @@ export const QuoteRequestView: React.FC<QuoteRequestViewProps> = ({ orderId, onB
                 setDeliveryDays(quoteData.terms.deliveryDays);
             } else {
                 setProducts(orderData.order_items.map((i: any) => ({
-                    productId: i.id.toString(),
+                    productId: i.id.toString(), // Convert order_item ID to string for product ID
                     productName: i.product,
                     quantity: i.quantity,
                     price: 0,
@@ -68,24 +68,24 @@ export const QuoteRequestView: React.FC<QuoteRequestViewProps> = ({ orderId, onB
     if (!session || !order) return;
 
     const quoteData = {
-        order_id: orderId,
-        supplier_id: session.user.id,
-        supplier_name: 'Distribuidora Proveemus',
+        order_id: Number(orderId), // Convert orderId to number for DB
+        supplier_id: session.user.id, // session.user.id is string
+        supplier_name: 'Distribuidora Proveemus', // This should probably come from the supplier's profile
         products,
         terms: { paymentTerm: supplierPaymentTerm, deliveryDays }
     };
 
     let error;
     if (isEditing) {
-        ({ error } = await supabase.from('supplier_quotes').update(quoteData).eq('order_id', orderId).eq('supplier_id', session.user.id));
+        ({ error } = await supabase.from('supplier_quotes').update(quoteData).eq('order_id', Number(orderId)).eq('supplier_id', session.user.id));
     } else {
         ({ error } = await supabase.from('supplier_quotes').insert(quoteData));
     }
 
     if (!error) {
         showToast("Cotización enviada", "success");
-        // FIX: Use order.userId and convert to string for the targetUserId in addNotification
-        addNotification("Nueva Cotización", `Un proveedor ha cotizado tu orden #${orderId.slice(-6)}`, "info", UserRole.CLIENT, order.userId.toString());
+        // order.userId is now string
+        addNotification("Nueva Cotización", `Un proveedor ha cotizado tu orden #${orderId.slice(-6)}`, "info", UserRole.CLIENT, order.userId);
         onBack();
     }
   };

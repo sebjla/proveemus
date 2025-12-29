@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { UserRole } from '../types';
@@ -38,12 +37,12 @@ export const useNotifications = () => {
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null); // currentUserId is string (UUID)
 
   useEffect(() => {
     const fetchSession = async () => {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) setCurrentUserId(session.user.id);
+        if (session) setCurrentUserId(session.user.id); // session.user.id is string
     };
     fetchSession();
   }, []);
@@ -53,11 +52,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .or(`target_user_id.eq.${currentUserId},target_user_id.is.null`)
+        .or(`target_user_id.eq.${currentUserId},target_user_id.is.null`) // target_user_id is string
         .order('timestamp', { ascending: false });
     
     if (!error && data) {
-      setNotifications(data);
+      setNotifications(data.map(n => ({...n, id: n.id.toString() }))); // Ensure notification ID is string for local state
     }
   }, [currentUserId]);
 
@@ -74,7 +73,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     message: string, 
     type: AppNotification['type'] = 'info',
     targetRole?: UserRole,
-    targetUserId?: string
+    targetUserId?: string // targetUserId is string
   ) => {
     const { error } = await supabase.from('notifications').insert({
       title,
@@ -91,7 +90,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const { error } = await supabase
         .from('notifications')
         .update({ read: true })
-        .eq('id', id);
+        .eq('id', Number(id)); // Convert ID back to number for DB
     
     if (!error) fetchNotifications();
   };
@@ -101,7 +100,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const { error } = await supabase
         .from('notifications')
         .update({ read: true })
-        .eq('target_user_id', currentUserId);
+        .eq('target_user_id', currentUserId); // target_user_id is string
     
     if (!error) fetchNotifications();
   };
@@ -111,7 +110,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const { error } = await supabase
         .from('notifications')
         .delete()
-        .eq('target_user_id', currentUserId);
+        .eq('target_user_id', currentUserId); // target_user_id is string
     
     if (!error) fetchNotifications();
   };

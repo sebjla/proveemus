@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
@@ -36,7 +35,8 @@ const itemVariants = {
 
 export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ user, onNavigate }) => {
     const [isLoading, setIsLoading] = useState(true);
-    const [history, setHistory] = useState<QuoteHistoryItem[]>([]);
+    const [history, setHistory] = useState<QuoteHistoryItem[]>([]
+);
     const [stats, setStats] = useState({
         opportunities: 0,
         pendingReview: 0,
@@ -69,7 +69,7 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ user, onNa
                     *,
                     orders (id, school_name, status, created_at)
                 `)
-                .eq('supplier_id', user.id)
+                .eq('supplier_id', user.id) // user.id is string
                 .order('created_at', { ascending: false });
 
             if (!quotesError && quotesData) {

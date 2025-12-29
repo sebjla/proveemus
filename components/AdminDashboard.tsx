@@ -46,12 +46,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
     const [orders, setOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [activeOpsTab, setActiveOpsTab] = useState<'pending' | 'bidding' | 'logistics' | 'history'>('pending');
-    const [clientFilter, setClientFilter] = useState<string>('ALL');
+    const [clientFilter, setClientFilter] = useState<string>('ALL'); // Filter is string (UUID)
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [clients, setClients] = useState<User[]>([]);
-    const [selectedClientId, setSelectedClientId] = useState<string>('');
+    const [selectedClientId, setSelectedClientId] = useState<string>(''); // Client ID is string (UUID)
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-    const [orderToCancel, setOrderToCancel] = useState<number | null>(null);
     const { addNotification } = useNotifications();
     const { showToast } = useToast();
 
@@ -71,7 +70,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
                 schoolName: o.school_name,
                 expirationDate: o.expiration_date,
                 requestedDeliveryDate: o.requested_delivery_date,
-                termsAndConditions: o.terms_and_conditions
+                termsAndConditions: o.terms_and_conditions,
+                userId: o.user_id // Ensure userId is correctly mapped
             })));
         }
 
@@ -116,18 +116,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
             .eq('id', orderId);
 
         if (!error) {
-            await fetchOrdersAndClients(); 
-            addNotification("Estado Actualizado", `El pedido ${orderId} ahora está: ${status}`, "info");
+            // Fetch updated orders and clients
+            await fetchOrdersAndClients();
             showToast(`Solicitud actualizada a ${status}`, "success");
+
+            // Get the updated order to find the client for notification
+            const updatedOrder = orders.find(o => o.id === orderId);
+            if (updatedOrder && updatedOrder.userId) {
+                // Notify the client of the status change
+                addNotification(
+                    "Actualización de Pedido",
+                    `El estado de tu pedido #${orderId.toString().slice(-6)} ha cambiado a: ${status}`,
+                    "info",
+                    UserRole.CLIENT,
+                    updatedOrder.userId // userId is already string
+                );
+            }
+             // Admin internal notification
+             addNotification("Estado Actualizado", `El pedido ${orderId.toString().slice(-6)} ahora está: ${status}`, "info", UserRole.ADMIN);
+
         } else {
             showToast("Error al actualizar la solicitud", "error");
-        }
-    };
-
-    const confirmCancellation = async () => {
-        if (orderToCancel) {
-            await handleUpdateStatus(orderToCancel, OrderStatus.REJECTED);
-            setOrderToCancel(null);
         }
     };
     
@@ -139,7 +148,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
         const { data: order, error: orderError } = await supabase
             .from('orders')
             .insert({
-                user_id: selectedClient.id,
+                user_id: selectedClient.id, // selectedClient.id is string
                 school_name: selectedClient.schoolName,
                 status: OrderStatus.PENDING_APPROVAL,
                 expiration_date: details.expirationDate,
@@ -156,8 +165,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
                 brand: i.brand
             })));
             await fetchOrdersAndClients();
-            // FIX: Use selectedClient.id and convert to string for targetUserId
-            addNotification("Solicitud Creada", `Nueva solicitud creada para ${selectedClient.schoolName}`, "success", UserRole.CLIENT, selectedClient.id.toString());
+            addNotification("Solicitud Creada", `Nueva solicitud creada para ${selectedClient.schoolName}`, "success", UserRole.CLIENT, selectedClient.id); // selectedClient.id is string
             if (onNavigate) onNavigate('OPERATIONS');
         }
         setIsSubmitting(false);
@@ -165,8 +173,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
 
     const opsOrders = useMemo(() => {
         return orders.filter(order => {
-            // FIX: Convert clientFilter to a number for comparison with order.userId
-            if (clientFilter !== 'ALL' && order.userId !== Number(clientFilter)) return false;
+            // clientFilter is string (UUID), order.userId is string (UUID)
+            if (clientFilter !== 'ALL' && order.userId !== clientFilter) return false;
             if (activeOpsTab === 'pending') return order.status === OrderStatus.PENDING_APPROVAL;
             if (activeOpsTab === 'bidding') return order.status === OrderStatus.IN_REVIEW;
             if (activeOpsTab === 'logistics') return order.status === OrderStatus.IN_PREPARATION || order.status === OrderStatus.ON_ITS_WAY;
@@ -373,7 +381,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
         <>
             <OrderDetailsPanel 
                 order={selectedOrder} 
-                currentUser={{ id: 'ADMIN' } as any} 
+                currentUser={{ id: 'admin-proveemus', email: 'admin@proveemus.com', role: UserRole.ADMIN, schoolName: 'Admin Proveemus', address: 'Calle Ficticia 123', cuit: 'XX-XXXXXXXX-X', taxStatus: 'Responsable Inscripto' }}
                 onClose={() => setSelectedOrder(null)}
                 onUpdateOrder={fetchOrdersAndClients}
             />
