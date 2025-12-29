@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { UserRole } from '../types';
+import { useToast } from '../context/ToastContext'; // Import useToast
 
 interface RegisterPageProps {
   initialRole?: UserRole;
@@ -13,6 +14,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ initialRole = UserRo
   const [role, setRole] = useState<UserRole>(initialRole);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast(); // Use the toast context
+
   const [formData, setFormData] = useState({
     schoolName: '',
     address: '',
@@ -37,7 +40,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ initialRole = UserRo
     });
 
     if (signUpError) {
+      console.error("Supabase SignUp Error:", signUpError); // Log detailed error
       setError(signUpError.message);
+      showToast(`Error al registrar: ${signUpError.message}`, "error"); // Use toast for error
       setIsLoading(false);
       return;
     }
@@ -55,14 +60,24 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ initialRole = UserRo
       });
 
       if (profileError) {
+        console.error("Supabase Profile Insert Error:", profileError); // Log detailed error
         setError(profileError.message);
+        showToast(`Error al crear perfil: ${profileError.message}`, "error"); // Use toast for error
+        // Optionally, you might want to delete the auth.user here if profile creation fails,
+        // but for now, we just report the error.
         setIsLoading(false);
         return;
       }
 
-      alert(`¡Registro exitoso! Por favor, verifica tu email si es necesario e inicia sesión.`);
+      // Use toast for success message
+      showToast(`¡Registro exitoso! Por favor, verifica tu email y inicia sesión.`, "success");
       onRegister();
+    } else {
+      // This case should theoretically not happen if signUpError is handled, but as a fallback
+      setError("Ocurrió un error inesperado durante el registro. Por favor, intenta de nuevo.");
+      showToast("Ocurrió un error inesperado durante el registro.", "error");
     }
+    setIsLoading(false); // Ensure loading state is reset even in unexpected paths
   };
 
   const isClient = role === UserRole.CLIENT;
