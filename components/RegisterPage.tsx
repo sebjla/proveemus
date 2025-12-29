@@ -40,7 +40,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ initialRole = UserRo
     });
 
     if (signUpError) {
-      console.error("Supabase SignUp Error:", signUpError); // Log detailed error
+      console.error("Supabase SignUp Error:", signUpError.message, signUpError); // Log detailed error
       setError(signUpError.message);
       showToast(`Error al registrar: ${signUpError.message}`, "error"); // Use toast for error
       setIsLoading(false);
@@ -60,7 +60,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ initialRole = UserRo
       });
 
       if (profileError) {
-        console.error("Supabase Profile Insert Error:", profileError); // Log detailed error
+        console.error("Supabase Profile Insert Error:", profileError.message, profileError); // Log detailed error
         setError(profileError.message);
         showToast(`Error al crear perfil: ${profileError.message}`, "error"); // Use toast for error
         // Optionally, you might want to delete the auth.user here if profile creation fails,
