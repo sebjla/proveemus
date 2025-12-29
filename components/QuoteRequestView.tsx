@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Order, UserRole } from '../types';
@@ -85,7 +84,8 @@ export const QuoteRequestView: React.FC<QuoteRequestViewProps> = ({ orderId, onB
 
     if (!error) {
         showToast("Cotización enviada", "success");
-        addNotification("Nueva Cotización", `Un proveedor ha cotizado tu orden #${orderId.slice(-6)}`, "info", UserRole.CLIENT, order.user_id as any);
+        // FIX: Use order.userId and convert to string for the targetUserId in addNotification
+        addNotification("Nueva Cotización", `Un proveedor ha cotizado tu orden #${orderId.slice(-6)}`, "info", UserRole.CLIENT, order.userId.toString());
         onBack();
     }
   };

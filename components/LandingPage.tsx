@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { BookOpenIcon } from './icons/BookOpenIcon';
@@ -29,7 +30,8 @@ const containerVariants = {
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { type: 'spring', damping: 25 } },
+  // FIX: Assert 'type' in transition as a constant for framer-motion type compatibility
+  visible: { opacity: 1, y: 0, transition: { type: 'spring' as const, damping: 25 } },
 };
 
 const AnimatedLine = () => (
@@ -47,7 +49,7 @@ const AnimatedLine = () => (
   </div>
 );
 
-const WorkflowStep = ({ icon: Icon, title, description, stepNumber, delay }: { icon: any, title: string, description: string, stepNumber: string, delay: number }) => (
+const WorkflowStep = ({ icon: Icon, title, description, stepNumber, delay }: { icon: any, title: string, description: string, string, delay: number }) => (
   <motion.div 
     initial={{ opacity: 0, y: 20 }}
     whileInView={{ opacity: 1, y: 0 }}

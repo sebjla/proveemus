@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Order, OrderStatus, UserRole } from '../types';
@@ -39,7 +38,8 @@ export const QuoteComparisonView: React.FC<QuoteComparisonViewProps> = ({ orderI
     
     if (!error) {
         showToast("Licitación Adjudicada", "success");
-        addNotification("Orden Adjudicada", "Tu solicitud ha sido adjudicada y está en preparación.", "success", UserRole.CLIENT, order?.user_id as any);
+        // FIX: Use order?.userId and convert to string for the targetUserId in addNotification
+        addNotification("Orden Adjudicada", "Tu solicitud ha sido adjudicada y está en preparación.", "success", UserRole.CLIENT, order?.userId.toString());
         onBack();
     }
     setIsAdjudicating(false);

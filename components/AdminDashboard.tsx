@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
@@ -157,7 +156,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
                 brand: i.brand
             })));
             await fetchOrdersAndClients();
-            addNotification("Solicitud Creada", `Nueva solicitud creada para ${selectedClient.schoolName}`, "success");
+            // FIX: Use selectedClient.id and convert to string for targetUserId
+            addNotification("Solicitud Creada", `Nueva solicitud creada para ${selectedClient.schoolName}`, "success", UserRole.CLIENT, selectedClient.id.toString());
             if (onNavigate) onNavigate('OPERATIONS');
         }
         setIsSubmitting(false);
@@ -165,7 +165,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
 
     const opsOrders = useMemo(() => {
         return orders.filter(order => {
-            if (clientFilter !== 'ALL' && order.user_id !== clientFilter) return false;
+            // FIX: Convert clientFilter to a number for comparison with order.userId
+            if (clientFilter !== 'ALL' && order.userId !== Number(clientFilter)) return false;
             if (activeOpsTab === 'pending') return order.status === OrderStatus.PENDING_APPROVAL;
             if (activeOpsTab === 'bidding') return order.status === OrderStatus.IN_REVIEW;
             if (activeOpsTab === 'logistics') return order.status === OrderStatus.IN_PREPARATION || order.status === OrderStatus.ON_ITS_WAY;
