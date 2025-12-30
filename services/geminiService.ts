@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { OrderItem } from '../types';
 
@@ -29,7 +30,7 @@ const orderSchema = {
 export const parseOrderFromText = async (text: string): Promise<Omit<OrderItem, 'id'>[]> => {
   try {
     const response = await ai.models.generateContent({
-      // FIX: Use gemini-3-flash-preview instead of gemini-2.5-flash
+      // FIX: Use gemini-3-flash-preview instead of gemini-2.5-flash as per guidelines.
       model: "gemini-3-flash-preview",
       contents: `Analiza el siguiente pedido de útiles escolares y conviértelo en una lista estructurada. La marca es opcional. Pedido: "${text}"`,
       config: {
@@ -38,7 +39,7 @@ export const parseOrderFromText = async (text: string): Promise<Omit<OrderItem, 
       },
     });
 
-    // FIX: Extract text output from response.text property
+    // FIX: Extract text output from response.text property.
     const jsonString = response.text!.trim();
     const parsedData = JSON.parse(jsonString);
 
