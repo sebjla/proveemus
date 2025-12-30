@@ -1,17 +1,8 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import type { OrderItem } from '../types';
 
-let ai: GoogleGenAI;
-const apiKey = process.env.API_KEY;
-
-if (apiKey && apiKey.length > 0) {
-  ai = new GoogleGenAI({ apiKey: apiKey });
-} else {
-  console.warn("ADVERTENCIA: API_KEY no configurada. Las llamadas a la API de Gemini no funcionarán.");
-  // Initialize with a dummy API key or handle gracefully
-  ai = new GoogleGenAI({ apiKey: 'dummy-api-key-not-functional' }); 
-}
+// FIX: Initialize GoogleGenAI with { apiKey: process.env.API_KEY }.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
 const orderSchema = {
   type: Type.ARRAY,
@@ -36,12 +27,9 @@ const orderSchema = {
 };
 
 export const parseOrderFromText = async (text: string): Promise<Omit<OrderItem, 'id'>[]> => {
-  if (!apiKey || apiKey.length === 0) {
-    throw new Error("No se puede procesar el pedido: API_KEY no configurada.");
-  }
-  
   try {
     const response = await ai.models.generateContent({
+      // FIX: Use gemini-3-flash-preview instead of gemini-2.5-flash
       model: "gemini-3-flash-preview",
       contents: `Analiza el siguiente pedido de útiles escolares y conviértelo en una lista estructurada. La marca es opcional. Pedido: "${text}"`,
       config: {
@@ -50,6 +38,7 @@ export const parseOrderFromText = async (text: string): Promise<Omit<OrderItem, 
       },
     });
 
+    // FIX: Extract text output from response.text property
     const jsonString = response.text!.trim();
     const parsedData = JSON.parse(jsonString);
 
