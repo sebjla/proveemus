@@ -25,7 +25,8 @@ const formatTime = (isoString: string) => {
   if (diffInSeconds < 60) return 'Hace un momento';
   if (diffInSeconds < 3600) return `Hace ${Math.floor(diffInSeconds / 60)} min`;
   if (diffInSeconds < 86400) return `Hace ${Math.floor(diffInSeconds / 3600)} h`;
-  return date.toLocaleDateString();
+  // If more than 24 hours, display date
+  return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
 export const NotificationCenter: React.FC = () => {

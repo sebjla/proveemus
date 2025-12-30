@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '../lib/supabase';
+// import { supabase } from '../lib/supabase'; // Supabase calls commented out
 import { SupplierOrder, Order, OrderStatus } from '../types';
 import { SearchIcon } from './icons/SearchIcon';
 import { FilterIcon } from './icons/FilterIcon';
@@ -30,42 +30,46 @@ export const SupplierOrdersList: React.FC<SupplierOrdersListProps> = ({ onSelect
   useEffect(() => {
     const fetchOrders = async () => {
         setIsLoading(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+        // Supabase Calls commented out:
+        // const { data: { session } } = await supabase.auth.getSession();
+        // if (!session) return;
 
-        const { data: allOrders } = await supabase
-            .from('orders')
-            .select('*, order_items(*)')
-            .in('status', [OrderStatus.IN_REVIEW, OrderStatus.IN_PREPARATION]);
+        // const { data: allOrders } = await supabase
+        //     .from('orders')
+        //     .select('*, order_items(*)')
+        //     .in('status', [OrderStatus.IN_REVIEW, OrderStatus.IN_PREPARATION]);
 
-        const { data: myQuotes } = await supabase
-            .from('supplier_quotes')
-            .select('order_id')
-            .eq('supplier_id', session.user.id);
+        // const { data: myQuotes } = await supabase
+        //     .from('supplier_quotes')
+        //     .select('order_id')
+        //     .eq('supplier_id', session.user.id);
 
-        if (allOrders) {
-            const mapped = allOrders.map(o => {
-                const quotedIds = myQuotes?.map(q => q.order_id.toString()) || [];
-                const hasQuoted = quotedIds.includes(o.id.toString());
+        // if (allOrders) {
+        //     const mapped = allOrders.map(o => {
+        //         const quotedIds = myQuotes?.map(q => q.order_id.toString()) || [];
+        //         const hasQuoted = quotedIds.includes(o.id.toString());
                 
-                const createdDate = new Date(o.created_at);
-                const expiryDate = new Date(createdDate.getTime() + (7 * 24 * 60 * 60 * 1000));
-                const remaining = Math.max(0, Math.floor((expiryDate.getTime() - Date.now()) / 1000));
+        //         const createdDate = new Date(o.created_at);
+        //         const expiryDate = new Date(createdDate.getTime() + (7 * 24 * 60 * 60 * 1000));
+        //         const remaining = Math.max(0, Math.floor((expiryDate.getTime() - Date.now()) / 1000));
 
-                return {
-                    id: o.id.toString(),
-                    schoolName: o.school_name,
-                    title: `Pedido de Materiales`,
-                    itemsTotal: o.order_items.length,
-                    itemsQuoted: 0,
-                    status: remaining === 0 ? 'VENCIDA' : (hasQuoted ? 'COTIZADA' : 'PENDIENTE'),
-                    remainingTimeSeconds: remaining,
-                    province: 'Buenos Aires',
-                    createdAt: o.created_at
-                } as SupplierOrder;
-            });
-            setOrders(mapped);
-        }
+        //         return {
+        //             id: o.id.toString(),
+        //             schoolName: o.school_name,
+        //             title: `Pedido de Materiales`,
+        //             itemsTotal: o.order_items.length,
+        //             itemsQuoted: 0,
+        //             status: remaining === 0 ? 'VENCIDA' : (hasQuoted ? 'COTIZADA' : 'PENDIENTE'),
+        //             remainingTimeSeconds: remaining,
+        //             province: 'Buenos Aires',
+        //             createdAt: o.created_at
+        //         } as SupplierOrder;
+        //     });
+        //     setOrders(mapped);
+        // }
+        
+        // Simulate no orders for now without backend
+        setOrders([]);
         setIsLoading(false);
     };
 
@@ -126,7 +130,7 @@ export const SupplierOrdersList: React.FC<SupplierOrdersListProps> = ({ onSelect
                     <th className="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Tiempo</th>
                     <th className="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Estado</th>
                     <th className="px-8 py-6 font-black uppercase text-[10px] tracking-widest">Organización</th>
-                    <th className="px-8 py-6 font-black uppercase text-[10px] tracking-widest text-right">Acción</th>
+                    <th scope="col" className="px-8 py-6 font-black uppercase text-[10px] tracking-widest text-right">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">

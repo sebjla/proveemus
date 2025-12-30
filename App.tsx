@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from './lib/supabase';
+// import { supabase } from './lib/supabase'; // No longer directly used for auth
 import type { User } from './types';
 import { UserRole } from './types';
 import { LoginPage } from './components/LoginPage';
@@ -38,7 +39,7 @@ const App: React.FC = () => {
     const [page, setPage] = useState<Page>('landing');
     const [authError, setAuthError] = useState<string | null>(null);
     const [registerRole, setRegisterRole] = useState<UserRole>(UserRole.CLIENT);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(true); // Keep isLoading for initial app load
     
     // Dashboard Navigation State
     const [currentDashboardView, setCurrentDashboardView] = useState<DashboardView>('HOME');
@@ -46,78 +47,44 @@ const App: React.FC = () => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     useEffect(() => {
-        // Check for active session on load
-        const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
-                
-                if (profile) {
-                    setUser({
-                        id: profile.id, // profile.id is string (UUID)
-                        email: profile.email,
-                        role: profile.role as UserRole,
-                        schoolName: profile.school_name,
-                        address: profile.address,
-                        cuit: profile.cuit,
-                        taxStatus: profile.tax_status
-                    });
+        // LocalStorage-based session check
+        const checkLocalSession = () => {
+            const storedUser = localStorage.getItem('currentUser');
+            if (storedUser) {
+                try {
+                    const parsedUser: User = JSON.parse(storedUser);
+                    setUser(parsedUser);
+                    setPage('login'); // Assume if user is logged in, they are past landing
+                } catch (e) {
+                    console.error("Failed to parse user from localStorage", e);
+                    localStorage.removeItem('currentUser');
                 }
             }
             setIsLoading(false);
         };
 
-        checkSession();
+        checkLocalSession();
 
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' && session) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
-                
-                if (profile) {
-                    setUser({
-                        id: profile.id, // profile.id is string (UUID)
-                        email: profile.email,
-                        role: profile.role as UserRole,
-                        schoolName: profile.school_name,
-                        address: profile.address,
-                        cuit: profile.cuit,
-                        taxStatus: profile.tax_status
-                    });
-                }
-            } else if (event === 'SIGNED_OUT') {
-                setUser(null);
-                setPage('landing');
-            }
-        });
+        // Simulate auth state change listener (can be extended if needed for real-time local storage changes)
+        const handleStorageChange = () => {
+            checkLocalSession();
+        };
 
-        return () => subscription.unsubscribe();
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
-    const handleLogin = async (email: string, pass: string) => {
+    const handleLogin = (loggedUser: User) => {
+        setUser(loggedUser);
         setAuthError(null);
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password: pass,
-        });
-        
-        if (error) {
-            setAuthError(error.message);
-        } else {
-            setCurrentDashboardView('HOME'); 
-        }
+        setCurrentDashboardView('HOME'); 
     };
     
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
+    const handleLogout = () => {
+        localStorage.removeItem('currentUser');
+        setUser(null);
+        setPage('landing');
+        setCurrentDashboardView('HOME'); // Reset view on logout
     };
 
     const handleNavigateToRegister = (role?: UserRole) => {
@@ -145,6 +112,8 @@ const App: React.FC = () => {
         switch (user.role) {
             case UserRole.ADMIN:
                 if (currentDashboardView === 'QUOTES') {
+                    // This section would typically list orders for suppliers to quote
+                    // For Admin, it might be a different view, or this is a placeholder
                     return <SupplierOrdersList onSelectOrder={handleSupplierSelectOrder} />;
                 }
                 if (currentDashboardView === 'QUOTE_DETAIL' && selectedOrderId) {
@@ -181,7 +150,7 @@ const App: React.FC = () => {
             <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-                    <p className="text-teal-900 font-black tracking-widest uppercase text-xs">Conectando con Proveemus...</p>
+                    <p className="text-teal-900 font-black tracking-widest uppercase text-xs">Cargando aplicación...</p>
                 </div>
             </div>
         );

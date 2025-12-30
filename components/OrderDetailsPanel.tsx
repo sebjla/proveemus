@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Order, User, Comment, OrderStatus, UserRole } from '../types';
@@ -5,6 +6,7 @@ import { XIcon } from './icons/XIcon';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { PackageIcon } from './icons/PackageIcon';
 import { UsersIcon } from './icons/UsersIcon';
+// import { supabase } from '../lib/supabase'; // Supabase calls commented out
 
 interface OrderDetailsPanelProps {
   order: Order | null;
@@ -22,15 +24,20 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
   const [activeTab, setActiveTab] = useState<'details' | 'chat'>('details');
   const [newMessage, setNewMessage] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [localOrder, setLocalOrder] = useState<Order | null>(order);
+
+  useEffect(() => {
+    setLocalOrder(order);
+  }, [order]);
 
   // Scroll to bottom of chat when messages change or tab opens
   useEffect(() => {
     if (activeTab === 'chat' && chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [order?.comments, activeTab]);
+  }, [localOrder?.comments, activeTab]);
 
-  if (!order) return null;
+  if (!localOrder) return null;
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,13 +53,18 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
     };
 
     const updatedOrder = {
-      ...order,
-      comments: [...(order.comments || []), newComment]
+      ...localOrder,
+      comments: [...(localOrder.comments || []), newComment]
     };
-
-    // Optimistic update
-    onUpdateOrder(updatedOrder);
+    
+    // Optimistic update locally
+    setLocalOrder(updatedOrder);
     setNewMessage('');
+
+    // Supabase Call commented out:
+    // This would typically involve an update to Supabase
+    // await supabase.from('orders').update({ comments: updatedOrder.comments }).eq('id', updatedOrder.id);
+    // onUpdateOrder(updatedOrder); // Propagate update if needed for parent component
   };
 
   const formatDate = (isoString: string) => {
@@ -63,7 +75,7 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
 
   return (
     <AnimatePresence>
-      {order && (
+      {localOrder && (
         <>
           {/* Backdrop */}
           <motion.div
@@ -85,8 +97,8 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Solicitud #{order.id.toString().slice(-6)}</h2>
-                <p className="text-xs text-gray-500">{order.schoolName}</p>
+                <h2 className="text-lg font-bold text-gray-900">Solicitud #{localOrder.id.toString().slice(-6)}</h2>
+                <p className="text-xs text-gray-500">{localOrder.schoolName}</p>
               </div>
               <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition-colors">
                 <XIcon className="w-6 h-6" />
@@ -114,9 +126,9 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
                 }`}
               >
                 Actividad y Mensajes
-                {(order.comments?.length || 0) > 0 && (
+                {(localOrder.comments?.length || 0) > 0 && (
                   <span className="bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full text-xs font-bold">
-                    {order.comments?.length}
+                    {localOrder.comments?.length}
                   </span>
                 )}
               </button>
@@ -130,10 +142,10 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
                   <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-xs font-semibold text-gray-500 uppercase">Estado Actual</span>
-                      <span className="text-xs text-gray-400">{formatDate(order.createdAt)}</span>
+                      <span className="text-xs text-gray-400">{formatDate(localOrder.createdAt)}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <OrderStatusBadge status={order.status} />
+                      <OrderStatusBadge status={localOrder.status} />
                     </div>
                   </div>
 
@@ -141,10 +153,10 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
                   <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center gap-2">
                       <PackageIcon className="w-4 h-4 text-gray-500" />
-                      <h3 className="text-sm font-semibold text-gray-700">Artículos Solicitados ({order.items.length})</h3>
+                      <h3 className="text-sm font-semibold text-gray-700">Artículos Solicitados ({localOrder.items.length})</h3>
                     </div>
                     <ul className="divide-y divide-gray-100">
-                      {order.items.map((item, idx) => (
+                      {localOrder.items.map((item, idx) => (
                         <li key={idx} className="p-4 hover:bg-gray-50 transition-colors">
                           <div className="flex justify-between items-start">
                             <div>
@@ -172,7 +184,7 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
                 <div className="flex flex-col h-full">
                   {/* Messages List */}
                   <div className="flex-1 p-4 space-y-4">
-                    {(!order.comments || order.comments.length === 0) ? (
+                    {(!localOrder.comments || localOrder.comments.length === 0) ? (
                       <div className="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
                          <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-3">
                            <UsersIcon className="w-8 h-8" />
@@ -181,7 +193,7 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
                          <p className="text-xs">Inicia la conversación sobre este pedido.</p>
                       </div>
                     ) : (
-                      order.comments.map((msg) => {
+                      localOrder.comments.map((msg) => {
                         const isMe = msg.userId === currentUser.id; // msg.userId and currentUser.id are string
                         return (
                           <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>

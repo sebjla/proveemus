@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { User } from '../types';
 import { SpinnerIcon } from './icons/SpinnerIcon';
@@ -14,8 +15,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
     schoolName: user.schoolName,
     email: user.email,
     address: user.address,
-    cuit: user.cuit,
-    password: '',
+    cuit: user.cuit, // CUIT remains read-only for now
+    password: '', // New password is not saved for localStorage demo, only for backend integration
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,10 +26,23 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    // Simulate API call
+    
+    // Simulate updating user data in localStorage
+    const updatedUser: User = {
+      ...user,
+      schoolName: formData.schoolName,
+      email: formData.email,
+      address: formData.address,
+      // CUIT is read-only, password not updated for localStorage demo
+    };
+
+    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+
     setTimeout(() => {
       setIsSaving(false);
-      showToast("Configuración actualizada correctamente", "success");
+      showToast("Configuración actualizada correctamente (simulado)", "success");
+      // For a real app, you'd also want to refresh the global user state
+      // This is simplified for localStorage demo
     }, 1000);
   };
 

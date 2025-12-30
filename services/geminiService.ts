@@ -1,8 +1,9 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { OrderItem } from '../types';
 
 // FIX: Initialize GoogleGenAI with { apiKey: process.env.API_KEY }.
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY! });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
 const orderSchema = {
   type: Type.ARRAY,

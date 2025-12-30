@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+// import { supabase } from '../lib/supabase'; // Supabase calls commented out
 import { Order, OrderStatus, UserRole } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -25,21 +26,25 @@ export const SupplierShipments: React.FC<SupplierShipmentsProps> = ({ onBack }) 
 
   const fetchLogistics = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .in('status', [OrderStatus.IN_PREPARATION, OrderStatus.ON_ITS_WAY]);
+    // Supabase Calls commented out:
+    // const { data, error } = await supabase
+    //     .from('orders')
+    //     .select('*, order_items(*)')
+    //     .in('status', [OrderStatus.IN_PREPARATION, OrderStatus.ON_ITS_WAY]);
     
-    if (!error && data) {
-        setOrders(data.map(o => ({
-            ...o,
-            items: o.order_items,
-            createdAt: o.created_at,
-            schoolName: o.school_name,
-            dispatchDetails: o.dispatch_details,
-            userId: o.user_id // Ensure userId is correctly mapped
-        })));
-    }
+    // if (!error && data) {
+    //     setOrders(data.map(o => ({
+    //         ...o,
+    //         items: o.order_items,
+    //         createdAt: o.created_at,
+    //         schoolName: o.school_name,
+    //         dispatchDetails: o.dispatch_details,
+    //         userId: o.user_id // Ensure userId is correctly mapped
+    //     })));
+    // }
+    
+    // Simulate no orders for now without backend
+    setOrders([]);
     setLoading(false);
   }, []);
 
@@ -57,29 +62,30 @@ export const SupplierShipments: React.FC<SupplierShipmentsProps> = ({ onBack }) 
         trackingNumber: `TRK-${Math.floor(Math.random() * 100000)}`
     };
 
-    const { error } = await supabase
-        .from('orders')
-        .update({ 
-            status: OrderStatus.ON_ITS_WAY,
-            dispatch_details: dispatchInfo
-        })
-        .eq('id', selectedOrderForDispatch.id);
+    // Supabase Call commented out:
+    // const { error } = await supabase
+    //     .from('orders')
+    //     .update({ 
+    //         status: OrderStatus.ON_ITS_WAY,
+    //         dispatch_details: dispatchInfo
+    //     })
+    //     .eq('id', selectedOrderForDispatch.id);
 
-    if (!error) {
-        showToast("Pedido despachado correctamente", "success");
+    // if (!error) {
+        showToast("Pedido despachado correctamente (simulado)", "success");
         addNotification(
-            "Pedido en Camino", 
-            `Tu pedido #${selectedOrderForDispatch.id.toString().slice(-6)} ha sido despachado y está en viaje.`, 
+            "Pedido en Camino (simulado)", 
+            `Tu pedido #${selectedOrderForDispatch.id.toString().slice(-6)} ha sido despachado y está en viaje. (simulado)`, 
             "info", 
             UserRole.CLIENT,
             selectedOrderForDispatch.userId // userId is now string, no 'as any' needed
         );
         setSelectedOrderForDispatch(null);
         setDispatchForm({ driverName: '', vehiclePlate: '' });
-        fetchLogistics();
-    } else {
-        showToast("Error al despachar el pedido", "error");
-    }
+        fetchLogistics(); // Re-fetch, but will still be empty without backend
+    // } else {
+    //     showToast("Error al despachar el pedido (simulado)", "error");
+    // }
   };
 
   if (loading) return <div className="flex justify-center p-12"><SpinnerIcon className="w-8 h-8 text-teal-600 animate-spin" /></div>;

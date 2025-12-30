@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '../lib/supabase';
+// import { supabase } from '../lib/supabase'; // Supabase calls commented out
 import { PackageIcon } from './icons/PackageIcon';
 import { TruckIcon } from './icons/TruckIcon';
 import { ClockIcon } from './icons/ClockIcon';
@@ -48,68 +49,78 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ user, onNa
         const fetchSupplierData = async () => {
             setIsLoading(true);
             
+            // Supabase Calls commented out:
             // 1. Fetch opportunities (orders in IN_REVIEW)
-            const { count: opportunitiesCount } = await supabase
-                .from('orders')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', OrderStatus.IN_REVIEW);
+            // const { count: opportunitiesCount } = await supabase
+            //     .from('orders')
+            //     .select('*', { count: 'exact', head: true })
+            //     .eq('status', OrderStatus.IN_REVIEW);
 
             // 2. Fetch logistics (orders in IN_PREPARATION where this supplier has a quote)
             // Simplified for demo: fetching all in preparation. 
             // In real app, we would join with chosen_supplier_id.
-            const { count: dispatchCount } = await supabase
-                .from('orders')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', OrderStatus.IN_PREPARATION);
+            // const { count: dispatchCount } = await supabase
+            //     .from('orders')
+            //     .select('*', { count: 'exact', head: true })
+            //     .eq('status', OrderStatus.IN_PREPARATION);
 
             // 3. Fetch Bidding History
-            const { data: quotesData, error: quotesError } = await supabase
-                .from('supplier_quotes')
-                .select(`
-                    *,
-                    orders (id, school_name, status, created_at)
-                `)
-                .eq('supplier_id', user.id) // user.id is string
-                .order('created_at', { ascending: false });
+            // const { data: quotesData, error: quotesError } = await supabase
+            //     .from('supplier_quotes')
+            //     .select(`
+            //         *,
+            //         orders (id, school_name, status, created_at)
+            //     `)
+            //     .eq('supplier_id', user.id) // user.id is string
+            //     .order('created_at', { ascending: false });
 
-            if (!quotesError && quotesData) {
-                const historyItems: QuoteHistoryItem[] = quotesData.map((q: any) => {
-                    const order = q.orders;
-                    const total = q.products.reduce((acc: number, p: any) => acc + (p.price * p.quantity), 0);
+            // if (!quotesError && quotesData) {
+            //     const historyItems: QuoteHistoryItem[] = quotesData.map((q: any) => {
+            //         const order = q.orders;
+            //         const total = q.products.reduce((acc: number, p: any) => acc + (p.price * p.quantity), 0);
                     
-                    let status: QuoteHistoryItem['status'] = 'PENDING';
-                    if (order.status === OrderStatus.IN_REVIEW) status = 'PENDING';
-                    else if ([OrderStatus.IN_PREPARATION, OrderStatus.ON_ITS_WAY, OrderStatus.DELIVERED].includes(order.status)) {
-                        // In this demo logic, if the order progressed and you have a quote, we show it as Won.
-                        // Ideally, we compare with a winner_id.
-                        status = 'WON';
-                    } else if (order.status === OrderStatus.REJECTED) status = 'EXPIRED';
-                    else status = 'LOST';
+            //         let status: QuoteHistoryItem['status'] = 'PENDING';
+            //         if (order.status === OrderStatus.IN_REVIEW) status = 'PENDING';
+            //         else if ([OrderStatus.IN_PREPARATION, OrderStatus.ON_ITS_WAY, OrderStatus.DELIVERED].includes(order.status)) {
+            //             // In this demo logic, if the order progressed and you have a quote, we show it as Won.
+            //             // Ideally, we compare with a winner_id.
+            //             status = 'WON';
+            //         } else if (order.status === OrderStatus.REJECTED) status = 'EXPIRED';
+            //         else status = 'LOST';
 
-                    return {
-                        orderId: order.id.toString(),
-                        schoolName: order.school_name,
-                        totalAmount: total,
-                        status,
-                        date: q.created_at || order.created_at
-                    };
-                });
+            //         return {
+            //             orderId: order.id.toString(),
+            //             schoolName: order.school_name,
+            //             totalAmount: total,
+            //             status,
+            //             date: q.created_at || order.created_at
+            //         };
+            //     });
                 
-                setHistory(historyItems);
+            //     setHistory(historyItems);
 
-                const wonCount = historyItems.filter(h => h.status === 'WON').length;
-                const pendingCount = historyItems.filter(h => h.status === 'PENDING').length;
-                const conversion = historyItems.length > 0 
-                    ? Math.round((wonCount / historyItems.length) * 100) 
-                    : 0;
+            //     const wonCount = historyItems.filter(h => h.status === 'WON').length;
+            //     const pendingCount = historyItems.filter(h => h.status === 'PENDING').length;
+            //     const conversion = historyItems.length > 0 
+            //         ? Math.round((wonCount / historyItems.length) * 100) 
+            //         : 0;
 
-                setStats({
-                    opportunities: opportunitiesCount || 0,
-                    pendingReview: pendingCount,
-                    toDispatch: dispatchCount || 0,
-                    conversionRate: `${conversion}%`
-                });
-            }
+            //     setStats({
+            //         opportunities: opportunitiesCount || 0,
+            //         pendingReview: pendingCount,
+            //         toDispatch: dispatchCount || 0,
+            //         conversionRate: `${conversion}%`
+            //     });
+            // }
+            
+            // Simulating no data for now without backend
+            setHistory([]);
+            setStats({
+                opportunities: 0,
+                pendingReview: 0,
+                toDispatch: 0,
+                conversionRate: '0%'
+            });
 
             setIsLoading(false);
         };

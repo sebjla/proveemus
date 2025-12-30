@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
-import { UserRole } from '../types';
+// import { supabase } from '../lib/supabase'; // No longer directly used for auth
+import { UserRole, User } from '../types';
 import { useToast } from '../context/ToastContext'; // Import useToast
 
 interface RegisterPageProps {
@@ -34,50 +34,35 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ initialRole = UserRo
     setIsLoading(true);
     setError(null);
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-    });
+    // Simulate user registration with localStorage
+    const storedUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
 
-    if (signUpError) {
-      console.error("Supabase SignUp Error:", signUpError.message, signUpError); // Log detailed error
-      setError(signUpError.message);
-      showToast(`Error al registrar: ${signUpError.message}`, "error"); // Use toast for error
+    // Check if user already exists
+    if (storedUsers.some((u: User) => u.email === formData.email)) {
+      setError('Ya existe una cuenta con este email.');
+      showToast('Ya existe una cuenta con este email.', 'error');
       setIsLoading(false);
       return;
     }
 
-    if (data.user) {
-      // Create user profile in the 'profiles' table
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        email: formData.email,
-        role: role,
-        school_name: formData.schoolName,
-        address: formData.address,
-        cuit: formData.cuit,
-        tax_status: formData.taxStatus,
-      });
+    // FIX: Add password property to User type in types.ts to avoid this error
+    const newUser: User = {
+      id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`, // Simple unique ID
+      email: formData.email,
+      role: role,
+      schoolName: formData.schoolName,
+      address: formData.address,
+      cuit: formData.cuit,
+      taxStatus: formData.taxStatus,
+      password: formData.password, // Storing password directly in localStorage for demo purposes
+    };
 
-      if (profileError) {
-        console.error("Supabase Profile Insert Error:", profileError.message, profileError); // Log detailed error
-        setError(profileError.message);
-        showToast(`Error al crear perfil: ${profileError.message}`, "error"); // Use toast for error
-        // Optionally, you might want to delete the auth.user here if profile creation fails,
-        // but for now, we just report the error.
-        setIsLoading(false);
-        return;
-      }
-
-      // Use toast for success message
-      showToast(`¡Registro exitoso! Por favor, verifica tu email y inicia sesión.`, "success");
-      onRegister();
-    } else {
-      // This case should theoretically not happen if signUpError is handled, but as a fallback
-      setError("Ocurrió un error inesperado durante el registro. Por favor, intenta de nuevo.");
-      showToast("Ocurrió un error inesperado durante el registro.", "error");
-    }
-    setIsLoading(false); // Ensure loading state is reset even in unexpected paths
+    storedUsers.push(newUser);
+    localStorage.setItem('registeredUsers', JSON.stringify(storedUsers));
+    
+    showToast(`¡Registro exitoso! Ya puedes iniciar sesión.`, "success");
+    onRegister();
+    setIsLoading(false);
   };
 
   const isClient = role === UserRole.CLIENT;

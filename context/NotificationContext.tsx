@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
+// import { supabase } from '../lib/supabase'; // No longer directly used
 import { UserRole } from '../types';
 
 export interface AppNotification {
@@ -37,27 +38,36 @@ export const useNotifications = () => {
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null); // currentUserId is string (UUID)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  // Effect to set current user ID from localStorage
   useEffect(() => {
-    const fetchSession = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) setCurrentUserId(session.user.id); // session.user.id is string
-    };
-    fetchSession();
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        setCurrentUserId(user.id);
+      } catch (e) {
+        console.error("Failed to parse user from localStorage in NotificationContext", e);
+        setCurrentUserId(null);
+      }
+    } else {
+      setCurrentUserId(null);
+    }
   }, []);
 
-  const fetchNotifications = useCallback(async () => {
-    if (!currentUserId) return;
-    const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .or(`target_user_id.eq.${currentUserId},target_user_id.is.null`) // target_user_id is string
-        .order('timestamp', { ascending: false });
-    
-    if (!error && data) {
-      setNotifications(data.map(n => ({...n, id: n.id.toString() }))); // Ensure notification ID is string for local state
+  const fetchNotifications = useCallback(() => {
+    if (!currentUserId) {
+      setNotifications([]);
+      return;
     }
+    const storedNotifications: AppNotification[] = JSON.parse(localStorage.getItem('notifications') || '[]');
+    // Filter notifications for the current user or global notifications
+    const userNotifications = storedNotifications.filter(n => 
+      n.target_user_id === currentUserId || n.target_user_id === undefined || n.target_user_id === null
+    ).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); // Sort by newest first
+    
+    setNotifications(userNotifications);
   }, [currentUserId]);
 
   useEffect(() => {
@@ -68,51 +78,60 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const toggleNotificationCenter = () => setIsOpen(prev => !prev);
 
-  const addNotification = useCallback(async (
+  const addNotification = useCallback((
     title: string, 
     message: string, 
     type: AppNotification['type'] = 'info',
     targetRole?: UserRole,
-    targetUserId?: string // targetUserId is string
+    targetUserId?: string
   ) => {
-    const { error } = await supabase.from('notifications').insert({
+    const newNotification: AppNotification = {
+      id: `notification-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       title,
       message,
       type,
+      timestamp: new Date().toISOString(),
+      read: false,
       target_role: targetRole,
-      target_user_id: targetUserId
-    });
-    
-    if (!error) fetchNotifications();
-  }, [fetchNotifications]);
+      target_user_id: targetUserId,
+    };
 
-  const markAsRead = async (id: string) => {
-    const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', Number(id)); // Convert ID back to number for DB
+    const storedNotifications: AppNotification[] = JSON.parse(localStorage.getItem('notifications') || '[]');
+    storedNotifications.push(newNotification);
+    localStorage.setItem('notifications', JSON.stringify(storedNotifications));
     
-    if (!error) fetchNotifications();
+    if (newNotification.target_user_id === currentUserId || newNotification.target_user_id === undefined || newNotification.target_user_id === null) {
+      setNotifications(prev => [newNotification, ...prev]);
+    }
+  }, [currentUserId]);
+
+  const markAsRead = (id: string) => {
+    const storedNotifications: AppNotification[] = JSON.parse(localStorage.getItem('notifications') || '[]');
+    const updatedNotifications = storedNotifications.map(n => n.id === id ? { ...n, read: true } : n);
+    localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+    fetchNotifications(); // Re-fetch to update state
   };
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = () => {
     if (!currentUserId) return;
-    const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('target_user_id', currentUserId); // target_user_id is string
-    
-    if (!error) fetchNotifications();
+    const storedNotifications: AppNotification[] = JSON.parse(localStorage.getItem('notifications') || '[]');
+    const updatedNotifications = storedNotifications.map(n => 
+      (n.target_user_id === currentUserId || n.target_user_id === undefined || n.target_user_id === null)
+        ? { ...n, read: true } 
+        : n
+    );
+    localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+    fetchNotifications(); // Re-fetch to update state
   };
 
-  const clearAll = async () => {
+  const clearAll = () => {
     if (!currentUserId) return;
-    const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('target_user_id', currentUserId); // target_user_id is string
-    
-    if (!error) fetchNotifications();
+    const storedNotifications: AppNotification[] = JSON.parse(localStorage.getItem('notifications') || '[]');
+    const remainingNotifications = storedNotifications.filter(n => 
+      n.target_user_id !== currentUserId && n.target_user_id !== undefined && n.target_user_id !== null
+    );
+    localStorage.setItem('notifications', JSON.stringify(remainingNotifications));
+    setNotifications([]); // Clear local state immediately
   };
 
   return (

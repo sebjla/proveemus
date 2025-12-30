@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabase';
+// import { supabase } from '../lib/supabase'; // Supabase calls commented out
 import type { Order, User, OrderItem } from '../types';
 import { OrderStatus, UserRole } from '../types';
 import { OrderStatusBadge } from './OrderStatusBadge';
@@ -57,43 +58,56 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
     const fetchOrdersAndClients = useCallback(async () => {
         setIsLoading(true);
         
-        const { data: ordersData } = await supabase
-            .from('orders')
-            .select('*, order_items(*)')
-            .order('created_at', { ascending: false });
+        // Supabase Calls commented out:
+        // const { data: ordersData } = await supabase
+        //     .from('orders')
+        //     .select('*, order_items(*)')
+        //     .order('created_at', { ascending: false });
 
-        if (ordersData) {
-            setOrders(ordersData.map(o => ({
-                ...o,
-                items: o.order_items,
-                createdAt: o.created_at,
-                schoolName: o.school_name,
-                expirationDate: o.expiration_date,
-                requestedDeliveryDate: o.requested_delivery_date,
-                termsAndConditions: o.terms_and_conditions,
-                userId: o.user_id // Ensure userId is correctly mapped
-            })));
+        // if (ordersData) {
+        //     setOrders(ordersData.map(o => ({
+        //         ...o,
+        //         items: o.order_items,
+        //         createdAt: o.created_at,
+        //         schoolName: o.school_name,
+        //         expirationDate: o.expiration_date,
+        //         requestedDeliveryDate: o.requested_delivery_date,
+        //         termsAndConditions: o.terms_and_conditions,
+        //         userId: o.user_id // Ensure userId is correctly mapped
+        //     })));
+        // }
+
+        // const { data: profilesData } = await supabase
+        //     .from('profiles')
+        //     .select('*')
+        //     .eq('role', UserRole.CLIENT);
+
+        // if (profilesData) {
+        //     setClients(profilesData.map(p => ({
+        //         id: p.id,
+        //         email: p.email,
+        //         role: p.role as UserRole,
+        //         schoolName: p.school_name,
+        //         address: p.address,
+        //         cuit: p.cuit,
+        //         taxStatus: p.tax_status
+        //     })));
+        //     if (profilesData.length > 0 && !selectedClientId) {
+        //         setSelectedClientId(profilesData[0].id);
+        //     }
+        // }
+        
+        // Simulating no orders/clients for now without backend
+        setOrders([]);
+        const dummyClients: User[] = [
+            { id: 'client-1', email: 'client1@test.com', role: UserRole.CLIENT, schoolName: 'Colegio Dummy 1', address: 'Calle Falsa 123', cuit: '20-12345678-9', taxStatus: 'Responsable Inscripto' },
+            { id: 'client-2', email: 'client2@test.com', role: UserRole.CLIENT, schoolName: 'Escuela Prueba 2', address: 'Avenida Imaginaria 456', cuit: '30-98765432-1', taxStatus: 'Monotributista' },
+        ];
+        setClients(dummyClients);
+        if (dummyClients.length > 0 && !selectedClientId) {
+            setSelectedClientId(dummyClients[0].id);
         }
 
-        const { data: profilesData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('role', UserRole.CLIENT);
-
-        if (profilesData) {
-            setClients(profilesData.map(p => ({
-                id: p.id,
-                email: p.email,
-                role: p.role as UserRole,
-                schoolName: p.school_name,
-                address: p.address,
-                cuit: p.cuit,
-                taxStatus: p.tax_status
-            })));
-            if (profilesData.length > 0 && !selectedClientId) {
-                setSelectedClientId(profilesData[0].id);
-            }
-        }
         setIsLoading(false);
     }, [selectedClientId]);
 
@@ -110,64 +124,69 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
     }, [orders]);
     
     const handleUpdateStatus = async (orderId: number, status: OrderStatus) => {
-        const { error } = await supabase
-            .from('orders')
-            .update({ status })
-            .eq('id', orderId);
+        // Supabase Call commented out:
+        // const { error } = await supabase
+        //     .from('orders')
+        //     .update({ status })
+        //     .eq('id', orderId);
 
-        if (!error) {
+        // if (!error) {
             // Fetch updated orders and clients
-            await fetchOrdersAndClients();
-            showToast(`Solicitud actualizada a ${status}`, "success");
+            await fetchOrdersAndClients(); // This will re-fetch dummy data or empty arrays
+            showToast(`Solicitud actualizada a ${status} (simulado)`, "success");
 
             // Get the updated order to find the client for notification
             const updatedOrder = orders.find(o => o.id === orderId);
             if (updatedOrder && updatedOrder.userId) {
                 // Notify the client of the status change
                 addNotification(
-                    "Actualización de Pedido",
-                    `El estado de tu pedido #${orderId.toString().slice(-6)} ha cambiado a: ${status}`,
+                    "Actualización de Pedido (simulado)",
+                    `El estado de tu pedido #${orderId.toString().slice(-6)} ha cambiado a: ${status} (simulado)`,
                     "info",
                     UserRole.CLIENT,
                     updatedOrder.userId // userId is already string
                 );
             }
              // Admin internal notification
-             addNotification("Estado Actualizado", `El pedido ${orderId.toString().slice(-6)} ahora está: ${status}`, "info", UserRole.ADMIN);
+             addNotification("Estado Actualizado (simulado)", `El pedido ${orderId.toString().slice(-6)} ahora está: ${status} (simulado)`, "info", UserRole.ADMIN);
 
-        } else {
-            showToast("Error al actualizar la solicitud", "error");
-        }
+        // } else {
+        //     showToast("Error al actualizar la solicitud (simulado)", "error");
+        // }
     };
     
     const handleOrderSubmit = async (items: Omit<OrderItem, 'id'>[], details: { expirationDate: string; requestedDeliveryDate: string; termsAndConditions: string; }) => {
         const selectedClient = clients.find(c => c.id === selectedClientId);
-        if (!selectedClient) return;
+        if (!selectedClient) {
+            showToast("Error: Cliente no seleccionado.", "error");
+            return;
+        }
         
         setIsSubmitting(true);
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .insert({
-                user_id: selectedClient.id, // selectedClient.id is string
-                school_name: selectedClient.schoolName,
-                status: OrderStatus.PENDING_APPROVAL,
-                expiration_date: details.expirationDate,
-                requested_delivery_date: details.requestedDeliveryDate,
-                terms_and_conditions: details.termsAndConditions
-            })
-            .select().single();
+        // Supabase Call commented out:
+        // const { data: order, error: orderError } = await supabase
+        //     .from('orders')
+        //     .insert({
+        //         user_id: selectedClient.id, // selectedClient.id is string
+        //         school_name: selectedClient.schoolName,
+        //         status: OrderStatus.PENDING_APPROVAL,
+        //         expiration_date: details.expirationDate,
+        //         requested_delivery_date: details.requestedDeliveryDate,
+        //         terms_and_conditions: details.termsAndConditions
+        //     })
+        //     .select().single();
 
-        if (order) {
-            await supabase.from('order_items').insert(items.map(i => ({
-                order_id: order.id,
-                quantity: i.quantity,
-                product: i.product,
-                brand: i.brand
-            })));
-            await fetchOrdersAndClients();
-            addNotification("Solicitud Creada", `Nueva solicitud creada para ${selectedClient.schoolName}`, "success", UserRole.CLIENT, selectedClient.id); // selectedClient.id is string
+        // if (order) {
+        //     await supabase.from('order_items').insert(items.map(i => ({
+        //         order_id: order.id,
+        //         quantity: i.quantity,
+        //         product: i.product,
+        //         brand: i.brand
+        //     })));
+            await fetchOrdersAndClients(); // This will re-fetch dummy data or empty arrays
+            addNotification("Solicitud Creada (simulado)", `Nueva solicitud creada para ${selectedClient.schoolName} (simulado)`, "success", UserRole.CLIENT, selectedClient.id); // selectedClient.id is string
             if (onNavigate) onNavigate('OPERATIONS');
-        }
+        // }
         setIsSubmitting(false);
     };
 
@@ -379,11 +398,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeView = 'HOME', on
     
     return (
         <>
+            {/* The currentUser prop here is a dummy for display as the actual current user comes from localStorage in App.tsx */}
             <OrderDetailsPanel 
                 order={selectedOrder} 
                 currentUser={{ id: 'admin-proveemus', email: 'admin@proveemus.com', role: UserRole.ADMIN, schoolName: 'Admin Proveemus', address: 'Calle Ficticia 123', cuit: 'XX-XXXXXXXX-X', taxStatus: 'Responsable Inscripto' }}
                 onClose={() => setSelectedOrder(null)}
-                onUpdateOrder={fetchOrdersAndClients}
+                onUpdateOrder={fetchOrdersAndClients} // This will re-fetch dummy data
             />
             <AnimatePresence mode="wait">
                 {renderContent()}

@@ -1,3 +1,4 @@
+
 export enum UserRole {
   CLIENT = 'CLIENT',
   ADMIN = 'ADMIN',
@@ -21,6 +22,7 @@ export interface User {
   address: string;
   cuit: string;
   taxStatus: string; // "Responsable Inscripto"
+  password?: string; // Optional password for local storage simulation
 }
 
 export interface OrderItem {

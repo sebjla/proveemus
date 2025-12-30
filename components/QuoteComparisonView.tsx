@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+// import { supabase } from '../lib/supabase'; // Supabase calls commented out
 import { Order, OrderStatus, UserRole } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -22,18 +23,23 @@ export const QuoteComparisonView: React.FC<QuoteComparisonViewProps> = ({ orderI
   useEffect(() => {
     const fetchData = async () => {
         setLoading(true);
-        const { data: orderData } = await supabase
-          .from('orders')
-          .select('*, order_items(*)')
-          .eq('id', Number(orderId)) // orderId is string from route, convert to number for DB
-          .single();
-        const { data: quotesData } = await supabase
-          .from('supplier_quotes')
-          .select('*')
-          .eq('order_id', Number(orderId)); // orderId is string from route, convert to number for DB
+        // Supabase Calls commented out:
+        // const { data: orderData } = await supabase
+        //   .from('orders')
+        //   .select('*, order_items(*)')
+        //   .eq('id', Number(orderId)) // orderId is string from route, convert to number for DB
+        //   .single();
+        // const { data: quotesData } = await supabase
+        //   .from('supplier_quotes')
+        //   .select('*')
+        //   .eq('order_id', Number(orderId)); // orderId is string from route, convert to number for DB
         
-        if (orderData) setOrder({ ...orderData, items: orderData.order_items, userId: orderData.user_id }); // Map user_id to userId
-        if (quotesData) setQuotes(quotesData);
+        // if (orderData) setOrder({ ...orderData, items: orderData.order_items, userId: orderData.user_id }); // Map user_id to userId
+        // if (quotesData) setQuotes(quotesData);
+
+        // Simulate no order/quotes for now without backend
+        setOrder(null);
+        setQuotes([]);
         setLoading(false);
     };
     fetchData();
@@ -41,20 +47,22 @@ export const QuoteComparisonView: React.FC<QuoteComparisonViewProps> = ({ orderI
 
   const handleAdjudicate = async () => {
     setIsAdjudicating(true);
-    const { error } = await supabase.from('orders').update({ status: OrderStatus.IN_PREPARATION }).eq('id', Number(orderId)); // orderId to number
+    // Supabase Call commented out:
+    // const { error } = await supabase.from('orders').update({ status: OrderStatus.IN_PREPARATION }).eq('id', Number(orderId)); // orderId to number
     
-    if (!error) {
-        showToast("Licitación Adjudicada", "success");
+    // if (!error) {
+        showToast("Licitación Adjudicada (simulado)", "success");
         // order?.userId is now string
-        if (order?.userId) {
-          addNotification("Orden Adjudicada", "Tu solicitud ha sido adjudicada y está en preparación.", "success", UserRole.CLIENT, order.userId);
-        }
+        // if (order?.userId) {
+        //   addNotification("Orden Adjudicada (simulado)", "Tu solicitud ha sido adjudicada y está en preparación. (simulado)", "success", UserRole.CLIENT, order.userId);
+        // }
         onBack();
-    }
+    // }
     setIsAdjudicating(false);
   };
 
   if (loading) return <div className="flex justify-center p-24"><SpinnerIcon className="w-10 h-10 text-teal-600" /></div>;
+  if (!order) return <div className="p-8">Orden no encontrada o no hay cotizaciones disponibles (sin backend).</div>;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">

@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabase';
+// import { supabase } from '../lib/supabase'; // Supabase calls commented out
 import type { Order, OrderItem, User } from '../types';
 import { OrderStatus, UserRole } from '../types';
 import { NewOrderForm } from './NewOrderForm';
@@ -42,27 +43,31 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
 
     const fetchOrders = useCallback(async () => {
         setIsLoading(true);
-        const { data, error } = await supabase
-            .from('orders')
-            .select(`
-                *,
-                order_items (*)
-            `)
-            .eq('user_id', user.id) // user.id is string
-            .order('created_at', { ascending: false });
+        // Supabase Call commented out:
+        // const { data, error } = await supabase
+        //     .from('orders')
+        //     .select(`
+        //         *,
+        //         order_items (*)
+        //     `)
+        //     .eq('user_id', user.id) // user.id is string
+        //     .order('created_at', { ascending: false });
 
-        if (!error && data) {
-            setOrders(data.map(o => ({
-                ...o,
-                items: o.order_items,
-                schoolName: o.school_name,
-                createdAt: o.created_at,
-                expirationDate: o.expiration_date,
-                requestedDeliveryDate: o.requested_delivery_date,
-                termsAndConditions: o.terms_and_conditions,
-                userId: o.user_id // Ensure userId is correctly mapped
-            })));
-        }
+        // if (!error && data) {
+        //     setOrders(data.map(o => ({
+        //         ...o,
+        //         items: o.order_items,
+        //         schoolName: o.school_name,
+        //         createdAt: o.created_at,
+        //         expirationDate: o.expiration_date,
+        //         requestedDeliveryDate: o.requested_delivery_date,
+        //         termsAndConditions: o.terms_and_conditions,
+        //         userId: o.user_id // Ensure userId is correctly mapped
+        //     })));
+        // }
+        
+        // Simulating no orders for now without backend
+        setOrders([]); 
         setIsLoading(false);
     }, [user.id]);
 
@@ -86,74 +91,77 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
     const handleOrderSubmit = async (items: Omit<OrderItem, 'id'>[], details: { expirationDate: string; requestedDeliveryDate: string; termsAndConditions: string; }) => {
         setIsSubmitting(true);
         
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .insert({
-                user_id: user.id, // user.id is string
-                school_name: user.schoolName,
-                status: OrderStatus.PENDING_APPROVAL,
-                expiration_date: details.expirationDate,
-                requested_delivery_date: details.requestedDeliveryDate,
-                terms_and_conditions: details.termsAndConditions
-            })
-            .select()
-            .single();
+        // Supabase Call commented out:
+        // const { data: order, error: orderError } = await supabase
+        //     .from('orders')
+        //     .insert({
+        //         user_id: user.id, // user.id is string
+        //         school_name: user.schoolName,
+        //         status: OrderStatus.PENDING_APPROVAL,
+        //         expiration_date: details.expirationDate,
+        //         requested_delivery_date: details.requestedDeliveryDate,
+        //         terms_and_conditions: details.termsAndConditions
+        //     })
+        //     .select()
+        //     .single();
 
-        if (orderError) {
-            showToast("Error al crear la solicitud", "error");
-            setIsSubmitting(false);
-            return;
-        }
+        // if (orderError) {
+        //     showToast("Error al crear la solicitud", "error");
+        //     setIsSubmitting(false);
+        //     return;
+        // }
 
-        const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(items.map(item => ({
-                order_id: order.id,
-                quantity: item.quantity,
-                product: item.product,
-                brand: item.brand
-            })));
+        // const { error: itemsError } = await supabase
+        //     .from('order_items')
+        //     .insert(items.map(item => ({
+        //         order_id: order.id,
+        //         quantity: item.quantity,
+        //         product: item.product,
+        //         brand: item.brand
+        //     })));
 
-        if (itemsError) {
-            showToast("Error al cargar los artículos", "error");
-        } else {
-            showToast("Solicitud enviada con éxito", "success");
+        // if (itemsError) {
+        //     showToast("Error al cargar los artículos", "error");
+        // } else {
+            showToast("Solicitud enviada con éxito (simulado)", "success");
             addNotification(
-                "Nueva Solicitud Recibida", 
-                `${user.schoolName} ha creado una nueva solicitud de cotización.`, 
+                "Nueva Solicitud Recibida (simulado)", 
+                `${user.schoolName} ha creado una nueva solicitud de cotización. (simulado)`, 
                 "info", 
                 UserRole.ADMIN // Target ADMIN role
             );
-            await fetchOrders();
+            await fetchOrders(); // Re-fetch, but will still be empty without backend
             if (onNavigate) onNavigate('HISTORY');
-        }
+        // }
         
         setIsSubmitting(false);
     };
 
     const handleUpdateOrder = async (updatedOrder: Order) => {
-        const { error } = await supabase
-            .from('orders')
-            .update({ status: updatedOrder.status })
-            .eq('id', updatedOrder.id);
+        // Supabase Call commented out:
+        // const { error } = await supabase
+        //     .from('orders')
+        //     .update({ status: updatedOrder.status })
+        //     .eq('id', updatedOrder.id);
         
-        if (!error) {
+        // if (!error) {
             setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
             setSelectedOrder(updatedOrder);
-        }
+        // }
     };
 
     const handleConfirmReception = async (orderId: number) => {
-        const { error } = await supabase
-            .from('orders')
-            .update({ status: OrderStatus.DELIVERED })
-            .eq('id', orderId);
+        // Supabase Call commented out:
+        // const { error } = await supabase
+        //     .from('orders')
+        //     .update({ status: OrderStatus.DELIVERED })
+        //     .eq('id', orderId);
 
-        if (!error) {
-            showToast("¡Recepción confirmada!", "success");
+        // if (!error) {
+            showToast("¡Recepción confirmada! (simulado)", "success");
             addNotification(
-                "Entrega Confirmada", 
-                `El cliente ${user.schoolName} ha confirmado la recepción de los materiales.`, 
+                "Entrega Confirmada (simulado)", 
+                `El cliente ${user.schoolName} ha confirmado la recepción de los materiales. (simulado)`, 
                 "success", 
                 UserRole.SUPPLIER,
                 // You would typically get the chosen supplier's ID from the order.
@@ -161,8 +169,8 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, activeVi
                 // If a chosen_supplier_id column existed in 'orders', you would use:
                 // order.chosen_supplier_id as string
             );
-            await fetchOrders();
-        }
+            await fetchOrders(); // Re-fetch, but will still be empty without backend
+        // }
     };
     
     const renderContent = () => {

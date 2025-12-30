@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+// import { supabase } from '../lib/supabase'; // Supabase calls commented out
 import { Order, UserRole } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -24,74 +25,80 @@ export const QuoteRequestView: React.FC<QuoteRequestViewProps> = ({ orderId, onB
   useEffect(() => {
     const loadData = async () => {
         setLoading(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+        // Supabase Calls commented out:
+        // const { data: { session } } = await supabase.auth.getSession();
+        // if (!session) return;
 
-        const { data: orderData } = await supabase
-            .from('orders')
-            .select('*, order_items(*)')
-            .eq('id', Number(orderId)) // orderId is string from route, convert to number for DB
-            .single();
+        // const { data: orderData } = await supabase
+        //     .from('orders')
+        //     .select('*, order_items(*)')
+        //     .eq('id', Number(orderId)) // orderId is string from route, convert to number for DB
+        //     .single();
 
-        if (orderData) {
-            setOrder({ ...orderData, items: orderData.order_items, userId: orderData.user_id }); // Map user_id to userId
+        // if (orderData) {
+        //     setOrder({ ...orderData, items: orderData.order_items, userId: orderData.user_id }); // Map user_id to userId
             
-            const { data: quoteData } = await supabase
-                .from('supplier_quotes')
-                .select('*')
-                .eq('order_id', Number(orderId)) // orderId is string from route, convert to number for DB
-                .eq('supplier_id', session.user.id) // session.user.id is string
-                .single();
+        //     const { data: quoteData } = await supabase
+        //         .from('supplier_quotes')
+        //         .select('*')
+        //         .eq('order_id', Number(orderId)) // orderId is string from route, convert to number for DB
+        //         .eq('supplier_id', session.user.id) // session.user.id is string
+        //         .single();
             
-            if (quoteData) {
-                setIsEditing(true);
-                setProducts(quoteData.products);
-                setSupplierPaymentTerm(quoteData.terms.paymentTerm);
-                setDeliveryDays(quoteData.terms.deliveryDays);
-            } else {
-                setProducts(orderData.order_items.map((i: any) => ({
-                    productId: i.id.toString(), // Convert order_item ID to string for product ID
-                    productName: i.product,
-                    quantity: i.quantity,
-                    price: 0,
-                    brandOffered: i.brand || ''
-                })));
-            }
-        }
+        //     if (quoteData) {
+        //         setIsEditing(true);
+        //         setProducts(quoteData.products);
+        //         setSupplierPaymentTerm(quoteData.terms.paymentTerm);
+        //         setDeliveryDays(quoteData.terms.deliveryDays);
+        //     } else {
+        //         setProducts(orderData.order_items.map((i: any) => ({
+        //             productId: i.id.toString(), // Convert order_item ID to string for product ID
+        //             productName: i.product,
+        //             quantity: i.quantity,
+        //             price: 0,
+        //             brandOffered: i.brand || ''
+        //         })));
+        //     }
+        // }
+        // For now, order will be null or dummy data
+        setOrder(null);
+        setProducts([]);
+        // FIX: Corrected typo: setIsLoading should be setLoading.
         setLoading(false);
     };
     loadData();
   }, [orderId]);
 
   const handleSubmit = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !order) return;
+    // Supabase Calls commented out:
+    // const { data: { session } = {} } = await supabase.auth.getSession();
+    // if (!session || !order) return;
 
-    const quoteData = {
-        order_id: Number(orderId), // Convert orderId to number for DB
-        supplier_id: session.user.id, // session.user.id is string
-        supplier_name: 'Distribuidora Proveemus', // This should probably come from the supplier's profile
-        products,
-        terms: { paymentTerm: supplierPaymentTerm, deliveryDays }
-    };
+    // const quoteData = {
+    //     order_id: Number(orderId), // Convert orderId to number for DB
+    //     supplier_id: session.user.id, // session.user.id is string
+    //     supplier_name: 'Distribuidora Proveemus', // This should probably come from the supplier's profile
+    //     products,
+    //     terms: { paymentTerm: supplierPaymentTerm, deliveryDays }
+    // };
 
-    let error;
-    if (isEditing) {
-        ({ error } = await supabase.from('supplier_quotes').update(quoteData).eq('order_id', Number(orderId)).eq('supplier_id', session.user.id));
-    } else {
-        ({ error } = await supabase.from('supplier_quotes').insert(quoteData));
-    }
+    // let error;
+    // if (isEditing) {
+    //     ({ error } = await supabase.from('supplier_quotes').update(quoteData).eq('order_id', Number(orderId)).eq('supplier_id', session.user.id));
+    // } else {
+    //     ({ error } = await supabase.from('supplier_quotes').insert(quoteData));
+    // }
 
-    if (!error) {
-        showToast("Cotización enviada", "success");
+    // if (!error) {
+        showToast("Cotización enviada (simulado)", "success");
         // order.userId is now string
-        addNotification("Nueva Cotización", `Un proveedor ha cotizado tu orden #${orderId.slice(-6)}`, "info", UserRole.CLIENT, order.userId);
+        // addNotification("Nueva Cotización (simulado)", `Un proveedor ha cotizado tu orden #${orderId.slice(-6)} (simulado)`, "info", UserRole.CLIENT, order.userId);
         onBack();
-    }
+    // }
   };
 
   if (loading) return <div className="flex justify-center p-24"><SpinnerIcon className="w-10 h-10 text-teal-600" /></div>;
-  if (!order) return <div className="p-8">Orden no encontrada</div>;
+  if (!order) return <div className="p-8">Orden no encontrada o no hay datos (sin backend).</div>;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
